@@ -117,6 +117,21 @@ export interface LeagueInfo {
   avatar: string | null;
 }
 
+export interface LeagueMember {
+  rosterId: number;
+  userId: string;
+  displayName: string;
+  teamName: string;
+  /** Fully resolved avatar URL, ready to use as an img src */
+  avatar: string | null;
+}
+
+export interface LeagueContext {
+  league: LeagueInfo;
+  members: LeagueMember[];
+  availableSeasons: string[];
+}
+
 // TODO: [luck] LuckData type for expected-vs-actual wins analysis
 // export interface LuckData {
 //   rosterId: number;

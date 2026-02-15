@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { ManagerRanking, LeagueInfo } from "@/lib/types";
+import type { LeagueContext, LeagueInfo, ManagerRanking } from "@/lib/types";
 import TimeControls from "./components/TimeControls";
 import Leaderboard from "./components/Leaderboard";
 import Podium from "./components/Podium";
@@ -14,24 +14,55 @@ interface RankingsResponse {
   leagueName: string;
 }
 
+const DASHBOARD_TABS = [
+  { id: "leaderboard", label: "Leaderboard" },
+  { id: "roast", label: "Roast" },
+  { id: "luck", label: "Luck" },
+] as const;
+
+type DashboardTab = (typeof DASHBOARD_TABS)[number]["id"];
+
 export default function Home() {
   const [league, setLeague] = useState<LeagueInfo | null>(null);
   const [rankings, setRankings] = useState<ManagerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DashboardTab>("leaderboard");
 
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedSeason, setSelectedSeason] = useState("");
   const [availableSeasons, setAvailableSeasons] = useState<string[]>([]);
 
-  // Fetch league info
+  const readErrorMessage = useCallback(async (res: Response, fallback: string) => {
+    try {
+      const body = (await res.json()) as { error?: string };
+      return body.error ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
+  // Fetch shared league context
+  const fetchLeagueContext = useCallback(async (season?: string) => {
+    const params = new URLSearchParams();
+    if (season) params.set("season", season);
+    const res = await fetch(`/api/context?${params}`);
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, "Failed to load league context"));
+    }
+    return (await res.json()) as LeagueContext;
+  }, [readErrorMessage]);
+
+  // Legacy fallback for league metadata if context endpoint fails
   const fetchLeague = useCallback(async (season?: string) => {
     const params = new URLSearchParams();
     if (season) params.set("season", season);
     const res = await fetch(`/api/league?${params}`);
-    if (!res.ok) throw new Error("Failed to load league info");
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, "Failed to load league info"));
+    }
     return (await res.json()) as LeagueInfo;
-  }, []);
+  }, [readErrorMessage]);
 
   // Fetch rankings
   const fetchRankings = useCallback(
@@ -39,10 +70,12 @@ export default function Home() {
       const params = new URLSearchParams({ leagueId });
       if (week !== undefined) params.set("week", String(week));
       const res = await fetch(`/api/rankings?${params}`);
-      if (!res.ok) throw new Error("Failed to load rankings");
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, "Failed to load rankings"));
+      }
       return (await res.json()) as RankingsResponse;
     },
-    []
+    [readErrorMessage]
   );
 
   // Clamp selectedWeek when league changes (e.g. season switch)
@@ -58,18 +91,25 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const info = await fetchLeague();
-        setLeague(info);
-        setSelectedWeek(0);
-        setSelectedSeason(info.season);
+        let initialLeague: LeagueInfo;
+        let seasons: string[];
+        try {
+          const context = await fetchLeagueContext();
+          initialLeague = context.league;
+          seasons = context.availableSeasons;
+        } catch {
+          const info = await fetchLeague();
+          initialLeague = info;
+          const currentYear = parseInt(info.season, 10);
+          seasons = Array.from({ length: 6 }, (_, i) => String(currentYear - i));
+        }
 
-        const currentYear = parseInt(info.season, 10);
-        const seasons = Array.from({ length: 6 }, (_, i) =>
-          String(currentYear - i)
-        );
+        setLeague(initialLeague);
+        setSelectedWeek(0);
+        setSelectedSeason(initialLeague.season);
         setAvailableSeasons(seasons);
 
-        const data = await fetchRankings(info.leagueId);
+        const data = await fetchRankings(initialLeague.leagueId);
         setRankings(data.rankings);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -77,7 +117,7 @@ export default function Home() {
         setLoading(false);
       }
     })();
-  }, [fetchLeague, fetchRankings]);
+  }, [fetchLeagueContext, fetchLeague, fetchRankings]);
 
   // Refetch when week or season changes
   useEffect(() => {
@@ -90,8 +130,10 @@ export default function Home() {
         let targetLeague = league;
 
         if (selectedSeason !== league.season) {
-          targetLeague = await fetchLeague(selectedSeason);
-          setLeague(targetLeague);
+          const context = await fetchLeagueContext(selectedSeason);
+          targetLeague = context.league;
+          setLeague(context.league);
+          setAvailableSeasons(context.availableSeasons);
         }
 
         const week = selectedWeek === 0 ? undefined : selectedWeek;
@@ -161,13 +203,36 @@ export default function Home() {
         )}
       </header>
 
+      <nav className="mb-4 border-b border-[#222]">
+        <div className="flex items-center gap-2">
+          {DASHBOARD_TABS.map((tab) => {
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={[
+                  "px-3 py-2 text-[10px] uppercase tracking-widest border-b transition-colors",
+                  isActive
+                    ? "text-accent border-accent"
+                    : "text-text-secondary border-transparent hover:text-text-primary",
+                ].join(" ")}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-xs text-text-secondary uppercase tracking-widest animate-pulse">
             Loading rankings...
           </div>
         </div>
-      ) : (
+      ) : activeTab === "leaderboard" ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
           {/* Left: Leaderboard */}
           <Leaderboard rankings={rankings} />
@@ -180,6 +245,16 @@ export default function Home() {
             {/* TODO: [roast] Add roast widget here */}
             {/* TODO: [luck] Add luck analysis widget here */}
           </div>
+        </div>
+      ) : (
+        <div className="bg-card border border-[#222] rounded p-6">
+          <h2 className="text-xs uppercase tracking-widest text-text-primary mb-2">
+            {activeTab === "roast" ? "Roast" : "Luck"}
+          </h2>
+          <p className="text-sm text-text-secondary">
+            This tab is scaffolded and ready for the
+            {activeTab === "roast" ? " /api/roast" : " /api/luck"} integration.
+          </p>
         </div>
       )}
 
