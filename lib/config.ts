@@ -12,7 +12,7 @@ export const POWER_RANKING_WEIGHTS = {
 
 // PA is stored but only used as a tiebreaker (higher PA wins tie — means
 // the manager succeeded despite a tougher schedule).
-export const TIEBREAKER: "PA" = "PA";
+export const TIEBREAKER = "PA" as const;
 
 // ---------------------------------------------------------------------------
 // Sleeper API
@@ -41,3 +41,14 @@ export function getLeagueId(): string {
 // ---------------------------------------------------------------------------
 
 export const NFL_REGULAR_SEASON_WEEKS = 17;
+
+// ---------------------------------------------------------------------------
+// Weekly recap presentation thresholds
+// ---------------------------------------------------------------------------
+
+export const WEEKLY_RECAP_THRESHOLDS = {
+  CLOSE_MARGIN_LT: 5,
+  BLOWOUT_MARGIN_GT: 25,
+  SHOOTOUT_SCORE_GT: 130,
+  SNOOZEFEST_SCORE_LT: 95,
+} as const;

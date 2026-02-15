@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import type { ManagerRanking } from "@/lib/types";
 
 const podiumConfig = [
@@ -26,9 +28,11 @@ export default function Podium({ rankings }: { rankings: ManagerRanking[] }) {
           return (
             <div key={manager.rosterId} className="flex flex-col items-center gap-1.5 flex-1">
               {manager.avatar ? (
-                <img
+                <Image
                   src={manager.avatar}
                   alt=""
+                  width={32}
+                  height={32}
                   className="w-8 h-8 rounded-full shrink-0 bg-[#222] object-cover"
                 />
               ) : (

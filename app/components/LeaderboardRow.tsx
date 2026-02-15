@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import type { ManagerRanking } from "@/lib/types";
 
 const rankColors: Record<number, string> = {
@@ -32,9 +34,11 @@ export default function LeaderboardRow({
       {/* Manager name + optional LEADER badge */}
       <div className="flex items-center gap-2 truncate min-w-0">
         {manager.avatar ? (
-          <img
+          <Image
             src={manager.avatar}
             alt=""
+            width={32}
+            height={32}
             className="w-8 h-8 rounded-full shrink-0 bg-[#222] object-cover"
           />
         ) : (

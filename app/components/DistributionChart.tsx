@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import type { ManagerRanking } from "@/lib/types";
 
 export default function DistributionChart({
@@ -31,9 +33,11 @@ export default function DistributionChart({
         {data.map((d) => (
           <div key={d.rosterId} className="flex items-center gap-2">
             {d.avatar ? (
-              <img
+              <Image
                 src={d.avatar}
                 alt=""
+                width={20}
+                height={20}
                 className="w-5 h-5 rounded-full shrink-0 bg-[#222] object-cover"
               />
             ) : (

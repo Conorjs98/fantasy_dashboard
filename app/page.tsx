@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { LeagueContext, LeagueInfo, ManagerRanking } from "@/lib/types";
+import Image from "next/image";
+import type {
+  LeagueContext,
+  LeagueInfo,
+  ManagerRanking,
+  WeeklyRecapHighlight,
+  WeeklyRecapMatchup,
+  WeeklyRecapResponse,
+} from "@/lib/types";
 import TimeControls from "./components/TimeControls";
 import Leaderboard from "./components/Leaderboard";
 import Podium from "./components/Podium";
 import DistributionChart from "./components/DistributionChart";
+import WeeklyRecapFeed from "./components/WeeklyRecapFeed";
 
 interface RankingsResponse {
   rankings: ManagerRanking[];
@@ -15,6 +24,7 @@ interface RankingsResponse {
 }
 
 const DASHBOARD_TABS = [
+  { id: "weekly-recap", label: "Weekly Recap" },
   { id: "leaderboard", label: "Leaderboard" },
   { id: "roast", label: "Roast" },
   { id: "luck", label: "Luck" },
@@ -27,7 +37,10 @@ export default function Home() {
   const [rankings, setRankings] = useState<ManagerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("leaderboard");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("weekly-recap");
+  const [recapMatchups, setRecapMatchups] = useState<WeeklyRecapMatchup[]>([]);
+  const [recapHighlights, setRecapHighlights] = useState<WeeklyRecapHighlight[]>([]);
+  const [recapWeek, setRecapWeek] = useState<number>(1);
 
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedSeason, setSelectedSeason] = useState("");
@@ -78,6 +91,19 @@ export default function Home() {
     [readErrorMessage]
   );
 
+  const fetchWeeklyRecap = useCallback(
+    async (leagueId: string, week?: number) => {
+      const params = new URLSearchParams({ leagueId });
+      if (week !== undefined) params.set("week", String(week));
+      const res = await fetch(`/api/weekly-recap?${params}`);
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, "Failed to load weekly recap"));
+      }
+      return (await res.json()) as WeeklyRecapResponse;
+    },
+    [readErrorMessage]
+  );
+
   // Clamp selectedWeek when league changes (e.g. season switch)
   useEffect(() => {
     if (!league || selectedWeek === 0) return;
@@ -90,6 +116,10 @@ export default function Home() {
   // Initial load — default to full season view
   useEffect(() => {
     (async () => {
+      const initialSearchParams = new URLSearchParams(window.location.search);
+      const rawWeek = initialSearchParams.get("week");
+      const parsedWeekFromUrl = rawWeek ? parseInt(rawWeek, 10) : NaN;
+
       try {
         let initialLeague: LeagueInfo;
         let seasons: string[];
@@ -105,19 +135,34 @@ export default function Home() {
         }
 
         setLeague(initialLeague);
-        setSelectedWeek(0);
+        const maxWeek = Math.max(initialLeague.totalWeeks, initialLeague.currentWeek);
+        const initialWeek =
+          Number.isInteger(parsedWeekFromUrl) &&
+          parsedWeekFromUrl >= 1 &&
+          parsedWeekFromUrl <= maxWeek
+            ? parsedWeekFromUrl
+            : 0;
+        const requestedWeek = initialWeek === 0 ? undefined : initialWeek;
+
+        setSelectedWeek(initialWeek);
         setSelectedSeason(initialLeague.season);
         setAvailableSeasons(seasons);
 
-        const data = await fetchRankings(initialLeague.leagueId);
-        setRankings(data.rankings);
+        const [rankingsData, recapData] = await Promise.all([
+          fetchRankings(initialLeague.leagueId, requestedWeek),
+          fetchWeeklyRecap(initialLeague.leagueId, requestedWeek),
+        ]);
+        setRankings(rankingsData.rankings);
+        setRecapMatchups(recapData.matchups);
+        setRecapHighlights(recapData.highlights);
+        setRecapWeek(recapData.week);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     })();
-  }, [fetchLeagueContext, fetchLeague, fetchRankings]);
+  }, [fetchLeagueContext, fetchLeague, fetchRankings, fetchWeeklyRecap]);
 
   // Refetch when week or season changes
   useEffect(() => {
@@ -137,16 +182,33 @@ export default function Home() {
         }
 
         const week = selectedWeek === 0 ? undefined : selectedWeek;
-        const data = await fetchRankings(targetLeague.leagueId, week);
-        setRankings(data.rankings);
+        const [rankingsData, recapData] = await Promise.all([
+          fetchRankings(targetLeague.leagueId, week),
+          fetchWeeklyRecap(targetLeague.leagueId, week),
+        ]);
+        setRankings(rankingsData.rankings);
+        setRecapMatchups(recapData.matchups);
+        setRecapHighlights(recapData.highlights);
+        setRecapWeek(recapData.week);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWeek, selectedSeason]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (selectedWeek > 0) {
+      params.set("week", String(selectedWeek));
+    } else {
+      params.delete("week");
+    }
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+    window.history.replaceState(null, "", next);
+  }, [selectedWeek]);
 
   if (error) {
     return (
@@ -172,9 +234,11 @@ export default function Home() {
         <div className="flex items-center gap-3 mb-4">
           {league?.avatar && (
             <>
-              <img
+              <Image
                 src={league.avatar}
                 alt={league.name}
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded"
               />
               <div className="w-px h-6 bg-[#333]" />
@@ -229,8 +293,51 @@ export default function Home() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-xs text-text-secondary uppercase tracking-widest animate-pulse">
-            Loading rankings...
+            Loading dashboard...
           </div>
+        </div>
+      ) : activeTab === "weekly-recap" ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-widest text-text-secondary">
+              {selectedWeek === 0
+                ? `Showing latest completed week: Week ${recapWeek}`
+                : `Showing selected week: Week ${selectedWeek}`}
+            </p>
+            {league && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedWeek(Math.max(1, (selectedWeek === 0 ? recapWeek : selectedWeek) - 1))
+                  }
+                  disabled={(selectedWeek === 0 ? recapWeek : selectedWeek) <= 1}
+                  className="px-2 py-1 text-[10px] uppercase tracking-widest border border-[#333] rounded text-text-secondary hover:text-text-primary disabled:opacity-40 disabled:hover:text-text-secondary"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedWeek(
+                      Math.min(
+                        Math.max(league.totalWeeks, league.currentWeek),
+                        (selectedWeek === 0 ? recapWeek : selectedWeek) + 1
+                      )
+                    )
+                  }
+                  disabled={
+                    (selectedWeek === 0 ? recapWeek : selectedWeek) >=
+                    Math.max(league.totalWeeks, league.currentWeek)
+                  }
+                  className="px-2 py-1 text-[10px] uppercase tracking-widest border border-[#333] rounded text-text-secondary hover:text-text-primary disabled:opacity-40 disabled:hover:text-text-secondary"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+          <WeeklyRecapFeed week={recapWeek} matchups={recapMatchups} highlights={recapHighlights} />
         </div>
       ) : activeTab === "leaderboard" ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
@@ -249,7 +356,7 @@ export default function Home() {
       ) : (
         <div className="bg-card border border-[#222] rounded p-6">
           <h2 className="text-xs uppercase tracking-widest text-text-primary mb-2">
-            {activeTab === "roast" ? "Roast" : "Luck"}
+            {activeTab === "roast" ? "Roast" : activeTab === "luck" ? "Luck" : "Tab"}
           </h2>
           <p className="text-sm text-text-secondary">
             This tab is scaffolded and ready for the

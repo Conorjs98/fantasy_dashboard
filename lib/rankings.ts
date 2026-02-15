@@ -205,10 +205,12 @@ export function computeRankings(
       return placeA - placeB;
     });
   } else {
-    // Sort: by standing (wins desc), then PF desc as tiebreaker
+    // Sort: by standing (wins desc), then PF desc, then configured tiebreaker.
     scored.sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
-      return b.pointsFor - a.pointsFor;
+      if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+      if (TIEBREAKER === "PA") return b.pointsAgainst - a.pointsAgainst;
+      return 0;
     });
   }
 

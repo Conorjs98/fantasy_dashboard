@@ -132,6 +132,62 @@ export interface LeagueContext {
   availableSeasons: string[];
 }
 
+export interface WeeklyRecapParticipant {
+  rosterId: number;
+  userId: string;
+  displayName: string;
+  teamName: string;
+  avatar: string | null;
+  score: number;
+}
+
+export interface WeeklyRecapMatchup {
+  matchupId: number;
+  a: WeeklyRecapParticipant;
+  b: WeeklyRecapParticipant;
+  winnerUserId: string | null;
+  loserUserId: string | null;
+  winnerRosterId: number | null;
+  loserRosterId: number | null;
+  summary: string;
+  tags: WeeklyRecapTag[];
+}
+
+export type WeeklyRecapTagType = "close" | "blowout" | "shootout" | "snoozefest";
+
+export interface WeeklyRecapTag {
+  type: WeeklyRecapTagType;
+  label: string;
+  emoji: string;
+}
+
+export type WeeklyRecapHighlightType =
+  | "game_of_the_week"
+  | "beatdown"
+  | "high_score"
+  | "low_score";
+
+export interface WeeklyRecapHighlight {
+  type: WeeklyRecapHighlightType;
+  label: string;
+  emoji: string;
+  matchupId: number;
+  winnerName: string;
+  loserName: string;
+  winnerScore: number;
+  loserScore: number;
+  value: number;
+  valueLabel: string;
+}
+
+export interface WeeklyRecapResponse {
+  leagueId: string;
+  season: string;
+  week: number;
+  matchups: WeeklyRecapMatchup[];
+  highlights: WeeklyRecapHighlight[];
+}
+
 // TODO: [luck] LuckData type for expected-vs-actual wins analysis
 // export interface LuckData {
 //   rosterId: number;
