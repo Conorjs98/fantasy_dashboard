@@ -268,7 +268,7 @@ export default function Home() {
       </header>
 
       <nav className="mb-4 border-b border-[#222]">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {DASHBOARD_TABS.map((tab) => {
             const isActive = tab.id === activeTab;
             return (

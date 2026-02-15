@@ -57,6 +57,9 @@ npm run build  # production build
 - Weekly recap endpoint: `/api/weekly-recap`
 - Compatibility metadata endpoint: `/api/league`
 - Matchups passthrough endpoint: `/api/matchups/[week]`
+- Mobile navigation: dashboard tabs wrap to multiple lines on smaller screens
+- Mobile leaderboard: preserved desktop table columns with horizontal scroll on narrow viewports
+- Leaderboard PWR tooltip: opens below the header icon to avoid clipping and explains what the score indicates for users
 
 ## UI Tabs (Current Order)
 
