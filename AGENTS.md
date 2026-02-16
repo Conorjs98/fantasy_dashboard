@@ -80,6 +80,7 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 - Mobile navigation: dashboard tabs wrap to multiple lines on smaller screens
 - Mobile leaderboard: preserved desktop table columns with horizontal scroll on narrow viewports
 - Leaderboard PWR tooltip: opens below the header icon to avoid clipping and explains what the score indicates for users
+- Weekly recap summary card always renders; unpublished states show a single static "Recap coming soon" waiting indicator
 
 ## UI Tabs (Current Order)
 
@@ -98,6 +99,8 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - Clicking a highlights tile now applies a brief accent flash on the destination matchup card to make the scroll target obvious.
   - Winner/loser treatment (`W`/`L`, winner highlight, loser muted, tie-safe handling).
   - AI-generated per-matchup summaries and week summary via OpenAI gpt-4o.
+  - Unpublished recap states now show one Week Summary waiting card instead of repeating per-matchup unpublished placeholders.
+  - Waiting state uses a static "Recap coming soon" card while recap generation is pending.
   - Commissioner-controlled draft/publish lifecycle: generate draft → preview → publish.
   - Matchup chips: `Close`, `Blowout`, `Shootout`, `Snoozefest` from shared threshold constants.
   - Week navigation improvements: prev/next week buttons in Recap tab plus deep-linkable week URLs via `?week=N`.

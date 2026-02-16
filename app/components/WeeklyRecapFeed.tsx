@@ -13,6 +13,17 @@ interface WeeklyRecapFeedProps {
   weekSummary: string;
 }
 
+function RecapComingSoonIndicator() {
+  return (
+    <div className="mt-2 rounded border border-[#2a3b40] bg-[#0b1215] p-3">
+      <p className="text-sm text-text-primary leading-relaxed">Recap coming soon.</p>
+      <p className="text-[10px] uppercase tracking-widest text-text-secondary mt-1">
+        Week summary publishes after AI processing completes
+      </p>
+    </div>
+  );
+}
+
 function scoreLabel(score: number): string {
   return score.toFixed(2);
 }
@@ -115,6 +126,7 @@ function HighlightsStrip({
 export default function WeeklyRecapFeed({ week, matchups, highlights, recapState, weekSummary }: WeeklyRecapFeedProps) {
   const [flashMatchupId, setFlashMatchupId] = useState<number | null>(null);
   const clearFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPublishedWeekSummary = recapState === "PUBLISHED" && weekSummary.trim().length > 0;
 
   const handleHighlightClick = (matchupId: number): void => {
     scrollToMatchup(matchupId);
@@ -151,12 +163,14 @@ export default function WeeklyRecapFeed({ week, matchups, highlights, recapState
   return (
     <div className="space-y-3">
       <HighlightsStrip highlights={highlights} onHighlightClick={handleHighlightClick} />
-      {recapState === "PUBLISHED" && weekSummary && (
-        <div className="bg-card border border-accent/30 rounded p-4">
-          <p className="text-[9px] uppercase tracking-widest text-accent mb-2">Week Summary</p>
+      <div className="bg-card border border-accent/30 rounded p-4">
+        <p className="text-[9px] uppercase tracking-widest text-accent mb-2">Week Summary</p>
+        {hasPublishedWeekSummary ? (
           <p className="text-sm text-text-primary leading-relaxed">{weekSummary}</p>
-        </div>
-      )}
+        ) : (
+          <RecapComingSoonIndicator />
+        )}
+      </div>
       {matchups.map((matchup) => {
         const isTie = matchup.a.score === matchup.b.score;
         const aResult: "W" | "L" | "T" = isTie
@@ -218,14 +232,12 @@ export default function WeeklyRecapFeed({ week, matchups, highlights, recapState
               />
             </div>
 
-            <div className="mt-3 border border-[#222] bg-[#0d0d0d] rounded p-3">
-              <p className="text-[9px] uppercase tracking-widest text-text-secondary mb-1">Summary</p>
-              <p className="text-sm text-text-primary">
-                {recapState === "PUBLISHED"
-                  ? matchup.summary
-                  : "Recap not yet published for this week."}
-              </p>
-            </div>
+            {recapState === "PUBLISHED" && matchup.summary.trim().length > 0 && (
+              <div className="mt-3 border border-[#222] bg-[#0d0d0d] rounded p-3">
+                <p className="text-[9px] uppercase tracking-widest text-text-secondary mb-1">Summary</p>
+                <p className="text-sm text-text-primary">{matchup.summary}</p>
+              </div>
+            )}
           </article>
         );
       })}
