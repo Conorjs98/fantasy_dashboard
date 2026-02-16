@@ -104,6 +104,20 @@ export default function Home() {
     [readErrorMessage]
   );
 
+  const fetchAndApplyData = useCallback(
+    async (leagueId: string, week?: number) => {
+      const [rankingsData, recapData] = await Promise.all([
+        fetchRankings(leagueId, week),
+        fetchWeeklyRecap(leagueId, week),
+      ]);
+      setRankings(rankingsData.rankings);
+      setRecapMatchups(recapData.matchups);
+      setRecapHighlights(recapData.highlights);
+      setRecapWeek(recapData.week);
+    },
+    [fetchRankings, fetchWeeklyRecap]
+  );
+
   // Clamp selectedWeek when league changes (e.g. season switch)
   useEffect(() => {
     if (!league || selectedWeek === 0) return;
@@ -148,21 +162,14 @@ export default function Home() {
         setSelectedSeason(initialLeague.season);
         setAvailableSeasons(seasons);
 
-        const [rankingsData, recapData] = await Promise.all([
-          fetchRankings(initialLeague.leagueId, requestedWeek),
-          fetchWeeklyRecap(initialLeague.leagueId, requestedWeek),
-        ]);
-        setRankings(rankingsData.rankings);
-        setRecapMatchups(recapData.matchups);
-        setRecapHighlights(recapData.highlights);
-        setRecapWeek(recapData.week);
+        await fetchAndApplyData(initialLeague.leagueId, requestedWeek);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     })();
-  }, [fetchLeagueContext, fetchLeague, fetchRankings, fetchWeeklyRecap]);
+  }, [fetchLeagueContext, fetchLeague, fetchAndApplyData]);
 
   // Refetch when week or season changes
   useEffect(() => {
@@ -182,14 +189,7 @@ export default function Home() {
         }
 
         const week = selectedWeek === 0 ? undefined : selectedWeek;
-        const [rankingsData, recapData] = await Promise.all([
-          fetchRankings(targetLeague.leagueId, week),
-          fetchWeeklyRecap(targetLeague.leagueId, week),
-        ]);
-        setRankings(rankingsData.rankings);
-        setRecapMatchups(recapData.matchups);
-        setRecapHighlights(recapData.highlights);
-        setRecapWeek(recapData.week);
+        await fetchAndApplyData(targetLeague.leagueId, week);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getMatchups } from "@/lib/sleeper";
-import { getLeagueId } from "@/lib/config";
 import { WEEKLY_RECAP_THRESHOLDS } from "@/lib/config";
 import { getLeagueContext } from "@/lib/league-context";
+import { parseLeagueParams, apiErrorResponse } from "@/lib/api-utils";
 import type {
   WeeklyRecapHighlight,
   WeeklyRecapMatchup,
@@ -145,9 +145,7 @@ function toHighlights(matchups: WeeklyRecapMatchup[]): WeeklyRecapHighlight[] {
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const leagueId = searchParams.get("leagueId") ?? getLeagueId();
-    const season = searchParams.get("season") ?? undefined;
+    const { leagueId, season, searchParams } = parseLeagueParams(request);
     const rawWeek = searchParams.get("week");
     const requestedWeek = rawWeek ? parseInt(rawWeek, 10) : null;
 
@@ -214,8 +212,6 @@ export async function GET(request: Request) {
       highlights,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    const status = message.includes("not found") ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return apiErrorResponse(err);
   }
 }

@@ -14,7 +14,7 @@ interface LeagueHistoryEntry {
   league: SleeperLeague;
 }
 
-export interface ResolvedLeagueContext extends LeagueContext {
+interface ResolvedLeagueContext extends LeagueContext {
   rosters: SleeperRoster[];
   users: SleeperUser[];
   rawLeague: SleeperLeague;

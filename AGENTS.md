@@ -10,6 +10,7 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
   - `rankings.ts` — Power ranking algorithm: `(winPct * 0.5 + normalizedPF * 0.5) * 100`
   - `config.ts` — Tunable constants (ranking weights, weekly recap thresholds, league ID helper)
   - `types.ts` — All Sleeper API and app types
+  - `api-utils.ts` — Shared API route helpers (param parsing, error responses)
 - **`app/api/`** — Route handlers that call `lib/sleeper.ts` and return JSON
   - `context/route.ts` — Unified context endpoint for league metadata + members + available seasons
 - **`app/components/`** — Client components (`"use client"`)
@@ -46,8 +47,9 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
 ## Commands
 
 ```
-npm run dev    # local dev server
-npm run build  # production build
+npm run dev          # local dev server
+npm run build        # production build (do NOT run while dev server is running — overwrites .next)
+npx tsc --noEmit     # type-check without a full build
 ```
 
 ## Current State

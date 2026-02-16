@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import { getLeagueContext } from "@/lib/league-context";
-import { getLeagueId } from "@/lib/config";
+import { parseLeagueParams, apiErrorResponse } from "@/lib/api-utils";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const leagueId = searchParams.get("leagueId") ?? getLeagueId();
-    const season = searchParams.get("season");
-    const context = await getLeagueContext({ leagueId, season: season ?? undefined });
+    const { leagueId, season } = parseLeagueParams(request);
+    const context = await getLeagueContext({ leagueId, season });
     return NextResponse.json(context.league);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    const status = message.includes("not found") ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return apiErrorResponse(err);
   }
 }
