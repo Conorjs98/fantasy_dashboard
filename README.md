@@ -4,6 +4,7 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
 
 ## Features
 
+- **Weekly Recap** — AI-generated matchup recaps with commissioner-controlled draft/publish flow
 - **Power Rankings** — Composite score (0–100) based on win percentage and normalized points-for
 - **Time Controls** — View rankings for the current week, any specific week, or the full season
 - **Season History** — Switch between seasons via dropdown
@@ -26,15 +27,27 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` and set your Sleeper league ID:
+   Edit `.env.local` and set the required variables:
 
    ```
    SLEEPER_LEAGUE_ID=your_league_id_here
+   OPENAI_API_KEY=sk-...
+   DATABASE_URL=postgresql://...
    ```
 
-   Find your league ID in the Sleeper app URL or league settings.
+   - `SLEEPER_LEAGUE_ID` — Find your league ID in the Sleeper app URL or league settings
+   - `OPENAI_API_KEY` — Required for AI recap generation ([platform.openai.com](https://platform.openai.com))
+   - `DATABASE_URL` — Neon Postgres connection string (see Database Setup below)
 
-3. **Run locally:**
+3. **Set up the database:**
+
+   Create a [Neon](https://neon.tech) Postgres database (free tier works), then add the connection string to `.env.local` as `DATABASE_URL`. Run the migration to create the `recaps` table:
+
+   ```bash
+   npx tsx lib/db/setup.ts
+   ```
+
+4. **Run locally:**
 
    ```bash
    npm run dev
@@ -46,8 +59,10 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
 
 1. Push to GitHub
 2. Import the repo in [Vercel](https://vercel.com)
-3. Add `SLEEPER_LEAGUE_ID` as an environment variable
-4. Deploy
+3. Add environment variables: `SLEEPER_LEAGUE_ID`, `OPENAI_API_KEY`
+4. Add a Neon Postgres database via Vercel Storage (or link an existing one) — this auto-sets `DATABASE_URL`
+5. Run `npx tsx lib/db/setup.ts` after first deploy (or use `vercel env pull .env.local` locally and run it from there)
+6. Deploy
 
 ## Power Ranking Algorithm
 
@@ -65,22 +80,42 @@ Weights are tunable in `lib/config.ts`.
 
 ```
 lib/
-  types.ts       — Sleeper API + app types
-  config.ts      — Tunable constants & env helpers
-  sleeper.ts     — Typed Sleeper API fetch helpers
-  rankings.ts    — Power ranking computation
+  types.ts          — Sleeper API + app types
+  config.ts         — Tunable constants & env helpers
+  sleeper.ts        — Typed Sleeper API fetch helpers
+  rankings.ts       — Power ranking computation
+  recap-builder.ts  — Matchup building logic for weekly recaps
+  recap-llm.ts      — OpenAI recap generation
+  recap-store.ts    — Recap persistence (Neon Postgres)
+  db/
+    index.ts        — Database connection & migration helper
+    schema.sql      — Recaps table schema
+    setup.ts        — One-time migration script
 app/
-  page.tsx        — Main dashboard (client component)
-  layout.tsx      — Root layout with dark theme
-  globals.css     — Tailwind + JetBrains Mono
-  components/     — UI components
+  page.tsx           — Main dashboard (client component)
+  layout.tsx         — Root layout with dark theme
+  globals.css        — Tailwind + JetBrains Mono
+  components/        — UI components
   api/
-    league/       — League info endpoint
-    rankings/     — Rankings computation endpoint
-    matchups/     — Weekly matchup data endpoint
-    roast/        — TODO: LLM-powered matchup roasts
-    luck/         — TODO: Expected vs actual wins analysis
+    context/         — League context endpoint
+    league/          — League info endpoint (legacy)
+    rankings/        — Rankings computation endpoint
+    matchups/        — Weekly matchup data endpoint
+    weekly-recap/    — Weekly recap + AI generate/publish/admin endpoints
+    roast/           — TODO: LLM-powered matchup roasts
+    luck/            — TODO: Expected vs actual wins analysis
 ```
+
+## AI Recaps
+
+The Weekly Recap tab supports AI-generated matchup summaries with a commissioner-controlled publish flow:
+
+1. Navigate to a week in the Weekly Recap tab
+2. Use the **Admin Controls** panel at the bottom to enter optional personality notes
+3. Click **Generate Draft** — this calls OpenAI to write a week summary and per-matchup recaps
+4. Preview the draft in the admin panel
+5. Click **Publish** to make the recap visible to all users
+6. To redo a recap, click **Regenerate** (resets to draft state, requires re-publishing)
 
 ## Extensibility
 

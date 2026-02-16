@@ -6,6 +6,7 @@ import type {
   LeagueContext,
   LeagueInfo,
   ManagerRanking,
+  RecapState,
   WeeklyRecapHighlight,
   WeeklyRecapMatchup,
   WeeklyRecapResponse,
@@ -15,6 +16,7 @@ import Leaderboard from "./components/Leaderboard";
 import Podium from "./components/Podium";
 import DistributionChart from "./components/DistributionChart";
 import WeeklyRecapFeed from "./components/WeeklyRecapFeed";
+import AdminRecapControls from "./components/AdminRecapControls";
 
 interface RankingsResponse {
   rankings: ManagerRanking[];
@@ -41,6 +43,8 @@ export default function Home() {
   const [recapMatchups, setRecapMatchups] = useState<WeeklyRecapMatchup[]>([]);
   const [recapHighlights, setRecapHighlights] = useState<WeeklyRecapHighlight[]>([]);
   const [recapWeek, setRecapWeek] = useState<number>(1);
+  const [recapState, setRecapState] = useState<RecapState>("NOT_GENERATED");
+  const [recapWeekSummary, setRecapWeekSummary] = useState("");
 
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [selectedSeason, setSelectedSeason] = useState("");
@@ -114,6 +118,8 @@ export default function Home() {
       setRecapMatchups(recapData.matchups);
       setRecapHighlights(recapData.highlights);
       setRecapWeek(recapData.week);
+      setRecapState(recapData.recapState ?? "NOT_GENERATED");
+      setRecapWeekSummary(recapData.weekSummary ?? "");
     },
     [fetchRankings, fetchWeeklyRecap]
   );
@@ -337,7 +343,21 @@ export default function Home() {
               </div>
             )}
           </div>
-          <WeeklyRecapFeed week={recapWeek} matchups={recapMatchups} highlights={recapHighlights} />
+          <WeeklyRecapFeed
+            week={recapWeek}
+            matchups={recapMatchups}
+            highlights={recapHighlights}
+            recapState={recapState}
+            weekSummary={recapWeekSummary}
+          />
+          {league && (
+            <AdminRecapControls
+              week={recapWeek}
+              leagueId={league.leagueId}
+              season={league.season}
+              onPublished={() => fetchAndApplyData(league.leagueId, selectedWeek === 0 ? undefined : selectedWeek)}
+            />
+          )}
         </div>
       ) : activeTab === "leaderboard" ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">

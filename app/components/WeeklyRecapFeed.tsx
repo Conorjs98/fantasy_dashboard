@@ -3,12 +3,14 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-import type { WeeklyRecapHighlight, WeeklyRecapMatchup } from "@/lib/types";
+import type { RecapState, WeeklyRecapHighlight, WeeklyRecapMatchup } from "@/lib/types";
 
 interface WeeklyRecapFeedProps {
   week: number;
   matchups: WeeklyRecapMatchup[];
   highlights: WeeklyRecapHighlight[];
+  recapState: RecapState;
+  weekSummary: string;
 }
 
 function scoreLabel(score: number): string {
@@ -110,7 +112,7 @@ function HighlightsStrip({
   );
 }
 
-export default function WeeklyRecapFeed({ week, matchups, highlights }: WeeklyRecapFeedProps) {
+export default function WeeklyRecapFeed({ week, matchups, highlights, recapState, weekSummary }: WeeklyRecapFeedProps) {
   const [flashMatchupId, setFlashMatchupId] = useState<number | null>(null);
   const clearFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -149,6 +151,12 @@ export default function WeeklyRecapFeed({ week, matchups, highlights }: WeeklyRe
   return (
     <div className="space-y-3">
       <HighlightsStrip highlights={highlights} onHighlightClick={handleHighlightClick} />
+      {recapState === "PUBLISHED" && weekSummary && (
+        <div className="bg-card border border-accent/30 rounded p-4">
+          <p className="text-[9px] uppercase tracking-widest text-accent mb-2">Week Summary</p>
+          <p className="text-sm text-text-primary leading-relaxed">{weekSummary}</p>
+        </div>
+      )}
       {matchups.map((matchup) => {
         const isTie = matchup.a.score === matchup.b.score;
         const aResult: "W" | "L" | "T" = isTie
@@ -212,7 +220,11 @@ export default function WeeklyRecapFeed({ week, matchups, highlights }: WeeklyRe
 
             <div className="mt-3 border border-[#222] bg-[#0d0d0d] rounded p-3">
               <p className="text-[9px] uppercase tracking-widest text-text-secondary mb-1">Summary</p>
-              <p className="text-sm text-text-primary">{matchup.summary}</p>
+              <p className="text-sm text-text-primary">
+                {recapState === "PUBLISHED"
+                  ? matchup.summary
+                  : "Recap not yet published for this week."}
+              </p>
             </div>
           </article>
         );

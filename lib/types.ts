@@ -186,6 +186,40 @@ export interface WeeklyRecapResponse {
   week: number;
   matchups: WeeklyRecapMatchup[];
   highlights: WeeklyRecapHighlight[];
+  recapState: RecapState;
+  weekSummary: string;
+}
+
+// ---------------------------------------------------------------------------
+// AI Recap lifecycle types
+// ---------------------------------------------------------------------------
+
+export type RecapState = "NOT_GENERATED" | "DRAFT" | "PUBLISHED";
+
+export interface PersistedMatchupSummary {
+  matchupId: number;
+  summary: string;
+}
+
+export interface PersistedRecap {
+  leagueId: string;
+  season: string;
+  week: number;
+  state: RecapState;
+  weekSummary: string;
+  matchupSummaries: PersistedMatchupSummary[];
+  personalityNotes: string;
+  generatedAt: string;
+  publishedAt: string | null;
+}
+
+export interface AdminRecapResponse {
+  state: RecapState;
+  weekSummary: string;
+  matchupSummaries: PersistedMatchupSummary[];
+  personalityNotes: string;
+  generatedAt: string | null;
+  publishedAt: string | null;
 }
 
 // TODO: [luck] LuckData type for expected-vs-actual wins analysis

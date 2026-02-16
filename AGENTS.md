@@ -11,9 +11,18 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
   - `config.ts` — Tunable constants (ranking weights, weekly recap thresholds, league ID helper)
   - `types.ts` — All Sleeper API and app types
   - `api-utils.ts` — Shared API route helpers (param parsing, error responses)
+  - `db/index.ts` — Neon Postgres connection helper (`sql()` function) and `initDb()` for schema migration
+  - `recap-builder.ts` — Matchup building logic extracted from weekly-recap route (`buildRecapMatchups`, `buildHighlights`)
+  - `recap-store.ts` — Recap persistence layer (CRUD for `recaps` table via Neon Postgres)
+  - `recap-llm.ts` — OpenAI (gpt-4o) recap generation (`generateRecap()`)
 - **`app/api/`** — Route handlers that call `lib/sleeper.ts` and return JSON
   - `context/route.ts` — Unified context endpoint for league metadata + members + available seasons
+  - `weekly-recap/route.ts` — GET: matchups + highlights + published AI recap state
+  - `weekly-recap/generate/route.ts` — POST: generate AI recap draft via LLM
+  - `weekly-recap/publish/route.ts` — POST: publish a DRAFT recap
+  - `weekly-recap/admin/route.ts` — GET: admin preview of draft/published recap
 - **`app/components/`** — Client components (`"use client"`)
+  - `AdminRecapControls.tsx` — Commissioner controls: generate, preview, publish AI recaps
 - **`app/page.tsx`** — Main dashboard, manages state and fetches from `/api/*`
 
 ## Key Rules
@@ -36,7 +45,7 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
 
 ## Code comments
 
-- Do not add comments that explain only the immediate task or implementation detail (e.g. "so that X doesn’t clip", "so tooltip shows above"). Prefer comments that help future readers understand what the code does; omit obvious or one-off rationale.
+- Do not add comments that explain only the immediate task or implementation detail (e.g. "so that X doesn't clip", "so tooltip shows above"). Prefer comments that help future readers understand what the code does; omit obvious or one-off rationale.
 
 ## Style
 
@@ -50,6 +59,15 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
 npm run dev          # local dev server
 npm run build        # production build (do NOT run while dev server is running — overwrites .next)
 npx tsc --noEmit     # type-check without a full build
+npx tsx lib/db/setup.ts  # run database migration (creates recaps table)
+```
+
+## Environment Variables
+
+```
+SLEEPER_LEAGUE_ID    # required — Sleeper league ID
+OPENAI_API_KEY       # required for AI recap generation
+DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 ```
 
 ## Current State
@@ -70,7 +88,7 @@ npx tsc --noEmit     # type-check without a full build
 3. Roast
 4. Luck
 
-## Weekly Recap (Milestone M2)
+## Weekly Recap (Milestone M2 + AI Recap v1)
 
 - Implemented:
   - First tab in dashboard row.
@@ -79,19 +97,53 @@ npx tsc --noEmit     # type-check without a full build
   - Highlights strip tiles are clickable and smooth-scroll to the corresponding matchup row in the feed.
   - Clicking a highlights tile now applies a brief accent flash on the destination matchup card to make the scroll target obvious.
   - Winner/loser treatment (`W`/`L`, winner highlight, loser muted, tie-safe handling).
-  - Server-provided summary string per matchup (currently placeholder: `"Recap coming soon..."`).
+  - AI-generated per-matchup summaries and week summary via OpenAI gpt-4o.
+  - Commissioner-controlled draft/publish lifecycle: generate draft → preview → publish.
   - Matchup chips: `Close`, `Blowout`, `Shootout`, `Snoozefest` from shared threshold constants.
   - Week navigation improvements: prev/next week buttons in Recap tab plus deep-linkable week URLs via `?week=N`.
   - Mobile-safe stacked layout without horizontal scrolling.
 - Source files:
   - `lib/config.ts`
+  - `lib/recap-builder.ts`
+  - `lib/recap-llm.ts`
+  - `lib/recap-store.ts`
+  - `lib/db/index.ts`
   - `app/api/weekly-recap/route.ts`
+  - `app/api/weekly-recap/generate/route.ts`
+  - `app/api/weekly-recap/publish/route.ts`
+  - `app/api/weekly-recap/admin/route.ts`
   - `app/components/WeeklyRecapFeed.tsx`
+  - `app/components/AdminRecapControls.tsx`
   - `app/page.tsx`
   - `lib/types.ts`
 
+## AI Recap Lifecycle
+
+```
+NOT_GENERATED → [POST /generate] → DRAFT → [POST /publish] → PUBLISHED
+                                      ↑                          |
+                                      └── [POST /generate] ──────┘ (regenerate resets to DRAFT)
+```
+
+- `RecapState`: `"NOT_GENERATED" | "DRAFT" | "PUBLISHED"`
+- One recap per league/season/week (UNIQUE constraint in DB)
+- Regenerating an existing recap overwrites it and resets state to DRAFT
+- Public GET endpoint only shows AI summaries when state is PUBLISHED
+- Admin GET endpoint shows draft content for preview regardless of state
+- No auth in v1 — admin controls always visible
+
+## API Contracts
+
+| Method | Route | Body / Params | Response |
+|--------|-------|---------------|----------|
+| GET | `/api/weekly-recap` | `?leagueId&week&season` | `WeeklyRecapResponse` (+ `recapState`, `weekSummary`) |
+| GET | `/api/weekly-recap/admin` | `?leagueId&week` | `AdminRecapResponse` |
+| POST | `/api/weekly-recap/generate` | `{ week, leagueId?, season?, personalityNotes? }` | `{ ok, state: "DRAFT" }` |
+| POST | `/api/weekly-recap/publish` | `{ week, leagueId?, season? }` | `{ ok, state: "PUBLISHED" }` |
+
 ## Feature Status
 
+- AI Recap: implemented (v1 — no auth, commissioner controls always visible)
 - Roast API: stub (`/api/roast`)
 - Luck API: stub (`/api/luck`)
 - Multi-league env support: scaffolded in `lib/config.ts` TODO
