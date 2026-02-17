@@ -39,7 +39,12 @@ export default function Home() {
   const [rankings, setRankings] = useState<ManagerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("weekly-recap");
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
+    if (typeof window === "undefined") return "weekly-recap";
+    const param = new URLSearchParams(window.location.search).get("tab");
+    const valid = DASHBOARD_TABS.some((t) => t.id === param);
+    return valid ? (param as DashboardTab) : "weekly-recap";
+  });
   const [recapMatchups, setRecapMatchups] = useState<WeeklyRecapMatchup[]>([]);
   const [recapHighlights, setRecapHighlights] = useState<WeeklyRecapHighlight[]>([]);
   const [recapWeek, setRecapWeek] = useState<number>(1);
@@ -212,9 +217,14 @@ export default function Home() {
     } else {
       params.delete("week");
     }
+    if (activeTab !== "weekly-recap") {
+      params.set("tab", activeTab);
+    } else {
+      params.delete("tab");
+    }
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     window.history.replaceState(null, "", next);
-  }, [selectedWeek]);
+  }, [selectedWeek, activeTab]);
 
   if (error) {
     return (
