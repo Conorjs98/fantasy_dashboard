@@ -33,11 +33,13 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
    SLEEPER_LEAGUE_ID=your_league_id_here
    OPENAI_API_KEY=sk-...
    DATABASE_URL=postgresql://...
+   RECAP_STYLE_EXAMPLES_B64=...
    ```
 
    - `SLEEPER_LEAGUE_ID` — Find your league ID in the Sleeper app URL or league settings
    - `OPENAI_API_KEY` — Required for AI recap generation ([platform.openai.com](https://platform.openai.com))
    - `DATABASE_URL` — Neon Postgres connection string (see Database Setup below)
+   - `RECAP_STYLE_EXAMPLES_B64` — Optional private roast style examples (base64-encoded) used to steer recap voice without committing text to Git
 
 3. **Set up the database:**
 
@@ -60,6 +62,7 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
 1. Push to GitHub
 2. Import the repo in [Vercel](https://vercel.com)
 3. Add environment variables: `SLEEPER_LEAGUE_ID`, `OPENAI_API_KEY`
+   - Optional: add `RECAP_STYLE_EXAMPLES_B64` in Vercel Project Settings -> Environment Variables for private tone examples
 4. Add a Neon Postgres database via Vercel Storage (or link an existing one) — this auto-sets `DATABASE_URL`
 5. Run `npx -y dotenv-cli -e .env.local -- npx tsx lib/db/setup.ts` after first deploy (or use `vercel env pull .env.local` locally and run it from there)
 6. Deploy
@@ -116,6 +119,37 @@ The Weekly Recap tab supports AI-generated matchup summaries with a commissioner
 4. Preview the draft in the admin panel
 5. Click **Publish** to make the recap visible to all users
 6. To redo a recap, click **Regenerate** (resets to draft state, requires re-publishing)
+
+## Recap Style Examples
+
+Use private style examples to steer the recap voice without committing roast text to Git.
+
+- Supported env vars:
+  - `RECAP_STYLE_EXAMPLES` (raw text)
+  - `RECAP_STYLE_EXAMPLES_B64` (base64 text; recommended for hosted env managers)
+- Precedence: `RECAP_STYLE_EXAMPLES` is used first; if unset, the app falls back to `RECAP_STYLE_EXAMPLES_B64`.
+
+### Local setup
+
+1. Put your style corpus in a local file, for example `roast_examples.txt`.
+2. Encode it and write to `.env.local`:
+
+```bash
+RECAP_STYLE_EXAMPLES_B64=$(base64 < roast_examples.txt | tr -d '\n')
+```
+
+3. Add/update this line in `.env.local`:
+
+```bash
+RECAP_STYLE_EXAMPLES_B64=...
+```
+
+### Hosted setup (Vercel)
+
+1. Base64 encode your private examples locally.
+2. In Vercel Project Settings -> Environment Variables, add:
+   - `RECAP_STYLE_EXAMPLES_B64=<your_encoded_value>`
+3. Redeploy so the new secret is picked up by the server runtime.
 
 ## Extensibility
 

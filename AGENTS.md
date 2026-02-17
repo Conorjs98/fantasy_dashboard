@@ -69,6 +69,8 @@ npx tsx lib/db/setup.ts  # run database migration (creates recaps + manager_note
 SLEEPER_LEAGUE_ID    # required — Sleeper league ID
 OPENAI_API_KEY       # required for AI recap generation
 DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
+RECAP_STYLE_EXAMPLES # optional — private raw style examples injected into recap prompt (do not commit)
+RECAP_STYLE_EXAMPLES_B64 # optional — base64 variant for hosted secret managers
 ```
 
 ## Current State
@@ -109,6 +111,8 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - Published recap prose now highlights league team names with inline `TEAM` badges for clearer team-vs-player name scanning.
   - Admin recap preview mirrors the same team-name highlighting pattern in both week summary and matchup summaries.
   - AI recap prompt defaults to a savage roast persona and consumes per-manager context packs (notes, lineup stats, completed trades).
+  - AI recap tone defaults to R-rated roast voice with longer recap length (week summary and matchup writeups can span full paragraphs).
+  - Optional private style-example prompt injection is supported via hosted env vars (`RECAP_STYLE_EXAMPLES` / `RECAP_STYLE_EXAMPLES_B64`) so custom roast samples stay out of Git.
   - AI recap context now includes named top/bottom starters per team so generated summaries can reference real players when available.
   - Unpublished recap states now show one Week Summary waiting card instead of repeating per-matchup unpublished placeholders.
   - Waiting state uses an animated "Recap coming soon" card while recap generation is pending (retro 8-bit QB throw to WR, accent-cyan palette, catch pause, subtle jitter/trail effects, reduced-motion fallback).

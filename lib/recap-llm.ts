@@ -23,11 +23,26 @@ interface LLMMatchupInput {
   teamBContext: ManagerContextPack | null;
 }
 
+function resolvePrivateStyleExamples(): string {
+  const direct = process.env.RECAP_STYLE_EXAMPLES?.trim();
+  if (direct) return direct;
+
+  const base64 = process.env.RECAP_STYLE_EXAMPLES_B64?.trim();
+  if (!base64) return "";
+
+  try {
+    return Buffer.from(base64, "base64").toString("utf8").trim();
+  } catch {
+    return "";
+  }
+}
+
 function buildPrompt(
   week: number,
   season: string,
   matchups: LLMMatchupInput[],
-  personalityNotes: string
+  personalityNotes: string,
+  privateStyleExamples: string
 ): string {
   const matchupLines = matchups
     .map((m) => {
@@ -42,17 +57,25 @@ function buildPrompt(
     })
     .join("\n");
 
-  return `You are a savage, brutally honest fantasy football roast writer. Write a recap for Week ${week} of the ${season} season.
+  return `You are an R-rated fantasy football roast writer. Write a recap for Week ${week} of the ${season} season.
 
 ${personalityNotes ? `Personality/style notes from the commissioner: ${personalityNotes}\n` : ""}
+${privateStyleExamples ? `Private commissioner examples to mirror in voice and cadence (do not copy lines verbatim; adapt the tone):\n${privateStyleExamples}\n` : ""}
 Here are the matchups:
 ${matchupLines}
 
 Respond with a JSON object containing:
-1. "weekSummary": A 2-4 sentence overview of the week's action. Be specific about scores and margins.
-2. "matchupSummaries": An array of objects, each with "matchupId" (number) and "summary" (string, 1-2 sentences about that specific matchup). Cover every matchup.
+1. "weekSummary": One to two paragraphs (4-10 sentences total) covering major storylines, biggest beatdowns, and close calls with specific scores/margins.
+2. "matchupSummaries": An array of objects, each with "matchupId" (number) and "summary" (string, one to two paragraphs, 3-8 sentences, about that specific matchup). Cover every matchup.
 
-Roast losers hard. Use manager notes and context details as fuel. Keep it sharp and specific, not generic. Reference managers by their team names. Mention real player names from starter/trade context when available, and never invent player names. Do not use hashtags.`;
+Style rules:
+- Target an R-rated locker-room roast tone: vulgar, ruthless, and funny.
+- Roast losers aggressively; praise winners with swagger and attitude.
+- Use manager notes and context details as fuel. Keep it specific, not generic.
+- Reference managers by their fantasy team names.
+- Mention real player names from starter/trade context when available, and never invent player names.
+- Do not use hashtags.
+- Do not include slurs targeting protected classes, sexual content involving minors, or threats of violence.`;
 }
 
 export async function generateRecap(
@@ -81,14 +104,23 @@ export async function generateRecap(
     teamBContext: managerPacks.get(m.b.rosterId) ?? null,
   }));
 
-  const prompt = buildPrompt(week, season, llmMatchups, personalityNotes);
+  const privateStyleExamples = resolvePrivateStyleExamples();
+  const prompt = buildPrompt(
+    week,
+    season,
+    llmMatchups,
+    personalityNotes,
+    privateStyleExamples
+  );
 
   const response = await client.chat.completions.create({
     model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
-    temperature: 0.8,
-    max_tokens: 3000,
+    temperature: 1,
+    presence_penalty: 0.5,
+    frequency_penalty: 0.2,
+    max_tokens: 4500,
   });
 
   const content = response.choices[0]?.message?.content;
