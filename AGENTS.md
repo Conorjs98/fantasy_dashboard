@@ -80,8 +80,8 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 - Matchups passthrough endpoint: `/api/matchups/[week]`
 - Mobile navigation: dashboard tabs wrap to multiple lines on smaller screens
 - Mobile leaderboard: preserved desktop table columns with horizontal scroll on narrow viewports
-- Leaderboard PWR tooltip: opens below the header icon to avoid clipping and explains what the score indicates for users
-- Leaderboard now includes Expected Record context per row, `Δ vs Expected`, and `All-Play %`; Expected Record help text is attached to the `EXP REC` column header tooltip
+- Leaderboard header tooltips (`PWR`, `All-Play %`, `EXP REC`, `Δ vs Expected`) render in a fixed overlay so they remain visible within horizontal-scroll layouts
+- Leaderboard now includes Expected Record context per row, `Δ vs Expected`, and `All-Play %`; help text tooltips are attached to those related column headers
 - Expected Record metrics follow the active global week/season selection (no separate leaderboard scope toggle)
 - Weekly recap summary card always renders; unpublished states show a single "Recap coming soon" waiting indicator with an in-card retro 8-bit QB-to-WR loading animation
 - Published weekly summary and matchup recap text now marks league team-name mentions with inline `TEAM` badges so fantasy teams are visually distinct from NFL player names
