@@ -27,4 +27,15 @@ export async function initDb(): Promise<void> {
       UNIQUE(league_id, season, week)
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS manager_notes (
+      id          SERIAL PRIMARY KEY,
+      league_id   TEXT NOT NULL,
+      season      TEXT NOT NULL,
+      user_id     TEXT NOT NULL,
+      notes       TEXT NOT NULL DEFAULT '',
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(league_id, season, user_id)
+    )
+  `;
 }

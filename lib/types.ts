@@ -66,6 +66,24 @@ export interface SleeperMatchup {
   [key: string]: unknown;
 }
 
+export interface SleeperTransaction {
+  transaction_id: string;
+  type: "trade" | "free_agent" | "waiver";
+  status: string;
+  adds: Record<string, string> | null;
+  drops: Record<string, string> | null;
+  roster_ids: number[];
+  [key: string]: unknown;
+}
+
+export interface SleeperPlayer {
+  player_id: string;
+  full_name: string | null;
+  position: string | null;
+  team: string | null;
+  [key: string]: unknown;
+}
+
 export interface SleeperBracketMatch {
   /** Match number within the bracket */
   m: number;
@@ -190,6 +208,34 @@ export interface WeeklyRecapResponse {
   weekSummary: string;
 }
 
+export interface ManagerNote {
+  leagueId: string;
+  season: string;
+  userId: string;
+  notes: string;
+  updatedAt: string;
+}
+
+export interface ManagerTradeContext {
+  acquiredPlayers: string[];
+  droppedPlayers: string[];
+}
+
+export interface ManagerContextPack {
+  rosterId: number;
+  userId: string;
+  displayName: string;
+  teamName: string;
+  personalityNotes: string;
+  weeklyScore: number;
+  starterCount: number;
+  topStarterName: string;
+  topStarterScore: number;
+  bottomStarterName: string;
+  bottomStarterScore: number;
+  trades: ManagerTradeContext[];
+}
+
 // ---------------------------------------------------------------------------
 // AI Recap lifecycle types
 // ---------------------------------------------------------------------------
@@ -218,6 +264,7 @@ export interface AdminRecapResponse {
   weekSummary: string;
   matchupSummaries: PersistedMatchupSummary[];
   personalityNotes: string;
+  managerNotes: ManagerNote[];
   generatedAt: string | null;
   publishedAt: string | null;
 }

@@ -1,6 +1,6 @@
-import { getMatchups } from "@/lib/sleeper";
+import { getMatchups, getPlayers, getTransactions } from "@/lib/sleeper";
 import { WEEKLY_RECAP_THRESHOLDS } from "@/lib/config";
-import type { LeagueContext } from "@/lib/types";
+import type { LeagueContext, ManagerContextPack, SleeperMatchup } from "@/lib/types";
 import type {
   WeeklyRecapHighlight,
   WeeklyRecapMatchup,
@@ -166,14 +166,14 @@ export function buildHighlights(
 export async function buildRecapMatchups(
   context: LeagueContext,
   week: number
-): Promise<WeeklyRecapMatchup[]> {
-  const matchups = await getMatchups(context.league.leagueId, week);
+): Promise<{ matchups: WeeklyRecapMatchup[]; rawMatchups: SleeperMatchup[] }> {
+  const rawMatchups = await getMatchups(context.league.leagueId, week);
   const membersByRosterId = new Map(
     context.members.map((member) => [member.rosterId, member])
   );
 
-  const grouped = new Map<number, typeof matchups>();
-  for (const matchup of matchups) {
+  const grouped = new Map<number, typeof rawMatchups>();
+  for (const matchup of rawMatchups) {
     const group = grouped.get(matchup.matchup_id) ?? [];
     group.push(matchup);
     grouped.set(matchup.matchup_id, group);
@@ -215,5 +215,124 @@ export async function buildRecapMatchups(
   }
 
   recapMatchups.sort((left, right) => left.matchupId - right.matchupId);
-  return recapMatchups;
+  return { matchups: recapMatchups, rawMatchups };
+}
+
+function toPlayerName(
+  playerId: string,
+  playersById: Record<string, { full_name: string | null }>
+): string {
+  return playersById[playerId]?.full_name?.trim() || `Player ${playerId}`;
+}
+
+export async function buildManagerContextPacks(
+  context: LeagueContext,
+  week: number,
+  rawMatchups: SleeperMatchup[],
+  managerNotesByUserId: Map<string, string>
+): Promise<Map<number, ManagerContextPack>> {
+  let completedTrades: Array<{
+    adds: Record<string, string> | null;
+    drops: Record<string, string> | null;
+  }> = [];
+
+  try {
+    const transactions = await getTransactions(context.league.leagueId, week);
+    completedTrades = transactions.filter(
+      (tx) => tx.status === "complete" && tx.type === "trade"
+    );
+  } catch {
+    completedTrades = [];
+  }
+
+  let playersById: Record<string, { full_name: string | null }> = {};
+  try {
+    playersById = await getPlayers();
+  } catch {
+    playersById = {};
+  }
+
+  const tradesByRosterId = new Map<
+    number,
+    Array<{ acquiredPlayers: string[]; droppedPlayers: string[] }>
+  >();
+
+  for (const tx of completedTrades) {
+    const addsByRosterId = new Map<number, string[]>();
+    const dropsByRosterId = new Map<number, string[]>();
+
+    for (const [playerId, rosterIdRaw] of Object.entries(tx.adds ?? {})) {
+      const rosterId = Number(rosterIdRaw);
+      if (!Number.isFinite(rosterId)) continue;
+      const existing = addsByRosterId.get(rosterId) ?? [];
+      existing.push(toPlayerName(playerId, playersById));
+      addsByRosterId.set(rosterId, existing);
+    }
+
+    for (const [playerId, rosterIdRaw] of Object.entries(tx.drops ?? {})) {
+      const rosterId = Number(rosterIdRaw);
+      if (!Number.isFinite(rosterId)) continue;
+      const existing = dropsByRosterId.get(rosterId) ?? [];
+      existing.push(toPlayerName(playerId, playersById));
+      dropsByRosterId.set(rosterId, existing);
+    }
+
+    const rosterIds = new Set([
+      ...addsByRosterId.keys(),
+      ...dropsByRosterId.keys(),
+    ]);
+
+    for (const rosterId of rosterIds) {
+      const rosterTrades = tradesByRosterId.get(rosterId) ?? [];
+      rosterTrades.push({
+        acquiredPlayers: addsByRosterId.get(rosterId) ?? [],
+        droppedPlayers: dropsByRosterId.get(rosterId) ?? [],
+      });
+      tradesByRosterId.set(rosterId, rosterTrades);
+    }
+  }
+
+  const membersByRosterId = new Map(
+    context.members.map((member) => [member.rosterId, member])
+  );
+  const packs = new Map<number, ManagerContextPack>();
+
+  for (const matchup of rawMatchups) {
+    const member = membersByRosterId.get(matchup.roster_id);
+    if (!member) continue;
+
+    const starterPairs = (matchup.starters ?? []).map((starterId, index) => ({
+      starterId,
+      score: matchup.starters_points?.[index] ?? 0,
+    }));
+    const validStarterPairs = starterPairs.filter(
+      (pair) => typeof pair.score === "number" && Number.isFinite(pair.score)
+    );
+    const sortedStarterPairs = [...validStarterPairs].sort(
+      (a, b) => b.score - a.score
+    );
+    const topStarter = sortedStarterPairs[0];
+    const bottomStarter = sortedStarterPairs[sortedStarterPairs.length - 1];
+
+    packs.set(matchup.roster_id, {
+      rosterId: matchup.roster_id,
+      userId: member.userId,
+      displayName: member.displayName,
+      teamName: member.teamName,
+      personalityNotes: managerNotesByUserId.get(member.userId) ?? "",
+      weeklyScore: normalizeScore(matchup.points),
+      starterCount: validStarterPairs.length,
+      topStarterName: topStarter
+        ? toPlayerName(topStarter.starterId, playersById)
+        : "No starter data",
+      topStarterScore: topStarter?.score ?? 0,
+      bottomStarterName: bottomStarter
+        ? toPlayerName(bottomStarter.starterId, playersById)
+        : "No starter data",
+      bottomStarterScore: bottomStarter?.score ?? 0,
+      trades: tradesByRosterId.get(matchup.roster_id) ?? [],
+    });
+  }
+
+  return packs;
 }

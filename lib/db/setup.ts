@@ -3,7 +3,7 @@ import { initDb } from "./index";
 async function main() {
   console.log("Running database setup...");
   await initDb();
-  console.log("Database setup complete — recaps table created.");
+  console.log("Database setup complete — recaps and manager_notes tables created.");
 }
 
 main().catch((err) => {

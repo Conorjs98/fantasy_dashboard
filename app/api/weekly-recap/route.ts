@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const recapMatchups = await buildRecapMatchups(context, week);
+    const { matchups: recapMatchups } = await buildRecapMatchups(context, week);
     const highlights = buildHighlights(recapMatchups);
 
     let recapState: RecapState = "NOT_GENERATED";

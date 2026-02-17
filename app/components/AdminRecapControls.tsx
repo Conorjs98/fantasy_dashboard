@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { AdminRecapResponse, RecapState } from "@/lib/types";
+import { useState, useEffect, useCallback, useRef } from "react";
+import type {
+  AdminRecapResponse,
+  LeagueMember,
+  ManagerNote,
+  RecapState,
+} from "@/lib/types";
 
 interface AdminRecapControlsProps {
   week: number;
   leagueId: string;
   season: string;
+  members: LeagueMember[];
   onPublished: () => void;
 }
 
@@ -20,27 +26,47 @@ export default function AdminRecapControls({
   week,
   leagueId,
   season,
+  members,
   onPublished,
 }: AdminRecapControlsProps) {
   const [admin, setAdmin] = useState<AdminRecapResponse | null>(null);
   const [personalityNotes, setPersonalityNotes] = useState("");
+  const [managerNoteDrafts, setManagerNoteDrafts] = useState<Record<string, string>>({});
+  const [managerSaveState, setManagerSaveState] = useState<
+    Record<string, "idle" | "saving" | "saved" | "error">
+  >({});
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const saveVersionRef = useRef<Record<string, number>>({});
   const [generating, setGenerating] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const mergeManagerNotes = useCallback((notes: ManagerNote[]) => {
+    const next: Record<string, string> = {};
+    for (const note of notes) {
+      next[note.userId] = note.notes;
+    }
+    setManagerNoteDrafts(next);
+  }, []);
+
   const fetchAdmin = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ week: String(week), leagueId });
+      const params = new URLSearchParams({
+        week: String(week),
+        leagueId,
+        season,
+      });
       const res = await fetch(`/api/weekly-recap/admin?${params}`);
       if (!res.ok) return;
       const data = (await res.json()) as AdminRecapResponse;
       setAdmin(data);
       setPersonalityNotes(data.personalityNotes ?? "");
+      mergeManagerNotes(data.managerNotes ?? []);
     } catch {
       // Admin panel is non-critical — silently fail
     }
-  }, [week, leagueId]);
+  }, [week, leagueId, season, mergeManagerNotes]);
 
   useEffect(() => {
     fetchAdmin();
@@ -99,6 +125,40 @@ export default function AdminRecapControls({
     }
   };
 
+  const handleManagerNoteBlur = async (userId: string) => {
+    const nextVersion = (saveVersionRef.current[userId] ?? 0) + 1;
+    saveVersionRef.current[userId] = nextVersion;
+    setManagerSaveState((prev) => ({ ...prev, [userId]: "saving" }));
+
+    try {
+      const res = await fetch("/api/manager-notes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leagueId,
+          season,
+          userId,
+          notes: managerNoteDrafts[userId] ?? "",
+        }),
+      });
+
+      if (!res.ok) {
+        const body = (await res.json()) as { error?: string };
+        throw new Error(body.error ?? "Failed to save manager note");
+      }
+
+      if (saveVersionRef.current[userId] !== nextVersion) return;
+      setManagerSaveState((prev) => ({ ...prev, [userId]: "saved" }));
+      setTimeout(() => {
+        if (saveVersionRef.current[userId] !== nextVersion) return;
+        setManagerSaveState((prev) => ({ ...prev, [userId]: "idle" }));
+      }, 1200);
+    } catch {
+      if (saveVersionRef.current[userId] !== nextVersion) return;
+      setManagerSaveState((prev) => ({ ...prev, [userId]: "error" }));
+    }
+  };
+
   const state: RecapState = admin?.state ?? "NOT_GENERATED";
   const stateLabel = STATE_LABELS[state];
   const hasDraftOrPublished = state === "DRAFT" || state === "PUBLISHED";
@@ -132,6 +192,80 @@ export default function AdminRecapControls({
           className="w-full bg-[#0d0d0d] border border-[#222] rounded p-2 text-sm text-text-primary placeholder:text-text-secondary/50 resize-y min-h-[60px] focus:outline-none focus:border-accent disabled:opacity-50"
           rows={2}
         />
+      </div>
+
+      <div className="border border-[#222] rounded bg-[#0d0d0d]">
+        <button
+          type="button"
+          onClick={() => setNotesExpanded((prev) => !prev)}
+          className="w-full flex items-center justify-between px-3 py-2 text-[9px] uppercase tracking-widest text-text-secondary hover:text-text-primary"
+        >
+          <span>Manager Notes</span>
+          <span>{notesExpanded ? "▼" : "▶"}</span>
+        </button>
+
+        {notesExpanded && (
+          <div className="px-3 pb-3 space-y-2 border-t border-[#222]">
+            {[...members]
+              .sort((a, b) => a.rosterId - b.rosterId)
+              .map((member) => {
+                const saveState = managerSaveState[member.userId] ?? "idle";
+                const label = member.teamName || member.displayName;
+
+                return (
+                  <div key={member.userId} className="pt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label
+                        htmlFor={`manager-note-${member.userId}`}
+                        className="text-[9px] uppercase tracking-widest text-text-secondary"
+                      >
+                        {label}
+                      </label>
+                      <span
+                        className={[
+                          "text-[9px] uppercase tracking-widest",
+                          saveState === "saving"
+                            ? "text-accent"
+                            : saveState === "saved"
+                              ? "text-green-400"
+                              : saveState === "error"
+                                ? "text-red-400"
+                                : "text-text-secondary",
+                        ].join(" ")}
+                      >
+                        {saveState === "saving"
+                          ? "Saving"
+                          : saveState === "saved"
+                            ? "Saved"
+                            : saveState === "error"
+                              ? "Retry"
+                              : "Idle"}
+                      </span>
+                    </div>
+                    <textarea
+                      id={`manager-note-${member.userId}`}
+                      value={managerNoteDrafts[member.userId] ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setManagerNoteDrafts((prev) => ({
+                          ...prev,
+                          [member.userId]: value,
+                        }));
+                        setManagerSaveState((prev) => ({
+                          ...prev,
+                          [member.userId]: "idle",
+                        }));
+                      }}
+                      onBlur={() => handleManagerNoteBlur(member.userId)}
+                      placeholder="Add manager-specific roast/personality notes..."
+                      className="w-full bg-[#090909] border border-[#222] rounded p-2 text-sm text-text-primary placeholder:text-text-secondary/50 resize-y min-h-[48px] focus:outline-none focus:border-accent"
+                      rows={2}
+                    />
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

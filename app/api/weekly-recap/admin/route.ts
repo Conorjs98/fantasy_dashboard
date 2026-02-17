@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { apiErrorResponse } from "@/lib/api-utils";
-import { getLeagueId } from "@/lib/config";
+import { apiErrorResponse, parseLeagueParams } from "@/lib/api-utils";
 import { getLeagueContext } from "@/lib/league-context";
 import { readRecap } from "@/lib/recap-store";
+import { readAllManagerNotes } from "@/lib/manager-notes-store";
 import type { AdminRecapResponse } from "@/lib/types";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { leagueId, season, searchParams } = parseLeagueParams(request);
     const rawWeek = searchParams.get("week");
     const week = rawWeek ? parseInt(rawWeek, 10) : null;
 
@@ -15,9 +15,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Valid week number is required" }, { status: 400 });
     }
 
-    const leagueId = searchParams.get("leagueId") ?? getLeagueId();
-    const context = await getLeagueContext({ leagueId });
-    const recap = await readRecap(leagueId, context.league.season, week);
+    const context = await getLeagueContext({ leagueId, season });
+    const [recap, managerNotes] = await Promise.all([
+      readRecap(context.league.leagueId, context.league.season, week),
+      readAllManagerNotes(context.league.leagueId, context.league.season),
+    ]);
 
     const response: AdminRecapResponse = recap
       ? {
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
           weekSummary: recap.weekSummary,
           matchupSummaries: recap.matchupSummaries,
           personalityNotes: recap.personalityNotes,
+          managerNotes,
           generatedAt: recap.generatedAt,
           publishedAt: recap.publishedAt,
         }
@@ -33,6 +36,7 @@ export async function GET(request: Request) {
           weekSummary: "",
           matchupSummaries: [],
           personalityNotes: "",
+          managerNotes,
           generatedAt: null,
           publishedAt: null,
         };

@@ -5,6 +5,8 @@ import type {
   SleeperUser,
   SleeperMatchup,
   SleeperBracketMatch,
+  SleeperPlayer,
+  SleeperTransaction,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -71,4 +73,38 @@ export async function getNflState(): Promise<{
   [key: string]: unknown;
 }> {
   return sleeperFetch("/state/nfl");
+}
+
+const PLAYERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+let cachedPlayers: Record<string, SleeperPlayer> | null = null;
+let cachedPlayersTs = 0;
+
+export async function getTransactions(
+  leagueId: string,
+  week: number
+): Promise<SleeperTransaction[]> {
+  return sleeperFetch<SleeperTransaction[]>(
+    `/league/${leagueId}/transactions/${week}`
+  );
+}
+
+export async function getPlayers(): Promise<Record<string, SleeperPlayer>> {
+  const now = Date.now();
+  if (cachedPlayers && now - cachedPlayersTs < PLAYERS_CACHE_TTL_MS) {
+    return cachedPlayers;
+  }
+
+  try {
+    const players = await sleeperFetch<Record<string, SleeperPlayer>>(
+      "/players/nfl"
+    );
+    cachedPlayers = players;
+    cachedPlayersTs = now;
+    return players;
+  } catch (error) {
+    if (cachedPlayers) {
+      return cachedPlayers;
+    }
+    throw error;
+  }
 }

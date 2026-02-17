@@ -1,5 +1,9 @@
 import OpenAI from "openai";
-import type { WeeklyRecapMatchup, PersistedMatchupSummary } from "@/lib/types";
+import type {
+  WeeklyRecapMatchup,
+  PersistedMatchupSummary,
+  ManagerContextPack,
+} from "@/lib/types";
 
 interface GenerateRecapResult {
   weekSummary: string;
@@ -15,6 +19,8 @@ interface LLMMatchupInput {
   winner: string | null;
   margin: number;
   tags: string[];
+  teamAContext: ManagerContextPack | null;
+  teamBContext: ManagerContextPack | null;
 }
 
 function buildPrompt(
@@ -24,30 +30,37 @@ function buildPrompt(
   personalityNotes: string
 ): string {
   const matchupLines = matchups
-    .map(
-      (m) =>
-        `- Matchup ${m.matchupId}: ${m.teamA} (${m.scoreA}) vs ${m.teamB} (${m.scoreB}) | Winner: ${m.winner ?? "Tie"} | Margin: ${m.margin.toFixed(2)} | Tags: ${m.tags.join(", ") || "none"}`
-    )
+    .map((m) => {
+      const teamALine = m.teamAContext
+        ? `A context: notes="${m.teamAContext.personalityNotes || "none"}"; weeklyScore=${m.teamAContext.weeklyScore}; starterCount=${m.teamAContext.starterCount}; topStarter=${m.teamAContext.topStarterName} (${m.teamAContext.topStarterScore.toFixed(2)}); bottomStarter=${m.teamAContext.bottomStarterName} (${m.teamAContext.bottomStarterScore.toFixed(2)}); trades=${m.teamAContext.trades.map((trade) => `(+ ${trade.acquiredPlayers.join(", ") || "none"} | - ${trade.droppedPlayers.join(", ") || "none"})`).join("; ") || "none"}`
+        : "A context: unavailable";
+      const teamBLine = m.teamBContext
+        ? `B context: notes="${m.teamBContext.personalityNotes || "none"}"; weeklyScore=${m.teamBContext.weeklyScore}; starterCount=${m.teamBContext.starterCount}; topStarter=${m.teamBContext.topStarterName} (${m.teamBContext.topStarterScore.toFixed(2)}); bottomStarter=${m.teamBContext.bottomStarterName} (${m.teamBContext.bottomStarterScore.toFixed(2)}); trades=${m.teamBContext.trades.map((trade) => `(+ ${trade.acquiredPlayers.join(", ") || "none"} | - ${trade.droppedPlayers.join(", ") || "none"})`).join("; ") || "none"}`
+        : "B context: unavailable";
+
+      return `- Matchup ${m.matchupId}: ${m.teamA} (${m.scoreA}) vs ${m.teamB} (${m.scoreB}) | Winner: ${m.winner ?? "Tie"} | Margin: ${m.margin.toFixed(2)} | Tags: ${m.tags.join(", ") || "none"}\n  ${teamALine}\n  ${teamBLine}`;
+    })
     .join("\n");
 
-  return `You are a witty, entertaining fantasy football league recap writer. Write a recap for Week ${week} of the ${season} season.
+  return `You are a savage, brutally honest fantasy football roast writer. Write a recap for Week ${week} of the ${season} season.
 
 ${personalityNotes ? `Personality/style notes from the commissioner: ${personalityNotes}\n` : ""}
 Here are the matchups:
 ${matchupLines}
 
 Respond with a JSON object containing:
-1. "weekSummary": A 2-4 sentence overview of the week's action. Be engaging, reference specific results, and highlight the most interesting storylines.
+1. "weekSummary": A 2-4 sentence overview of the week's action. Be specific about scores and margins.
 2. "matchupSummaries": An array of objects, each with "matchupId" (number) and "summary" (string, 1-2 sentences about that specific matchup). Cover every matchup.
 
-Keep the tone fun and light. Reference managers by their team names. Do not use hashtags.`;
+Roast losers hard. Use manager notes and context details as fuel. Keep it sharp and specific, not generic. Reference managers by their team names. Mention real player names from starter/trade context when available, and never invent player names. Do not use hashtags.`;
 }
 
 export async function generateRecap(
   week: number,
   season: string,
   matchups: WeeklyRecapMatchup[],
-  personalityNotes: string
+  personalityNotes: string,
+  managerPacks: Map<number, ManagerContextPack>
 ): Promise<GenerateRecapResult> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -64,6 +77,8 @@ export async function generateRecap(
         : null,
     margin: Math.abs(m.a.score - m.b.score),
     tags: m.tags.map((t) => t.label),
+    teamAContext: managerPacks.get(m.a.rosterId) ?? null,
+    teamBContext: managerPacks.get(m.b.rosterId) ?? null,
   }));
 
   const prompt = buildPrompt(week, season, llmMatchups, personalityNotes);
@@ -73,7 +88,7 @@ export async function generateRecap(
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
     temperature: 0.8,
-    max_tokens: 2000,
+    max_tokens: 3000,
   });
 
   const content = response.choices[0]?.message?.content;

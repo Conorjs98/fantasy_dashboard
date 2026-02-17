@@ -5,6 +5,7 @@ import Image from "next/image";
 import type {
   LeagueContext,
   LeagueInfo,
+  LeagueMember,
   ManagerRanking,
   RecapState,
   WeeklyRecapHighlight,
@@ -36,6 +37,7 @@ type DashboardTab = (typeof DASHBOARD_TABS)[number]["id"];
 
 export default function Home() {
   const [league, setLeague] = useState<LeagueInfo | null>(null);
+  const [members, setMembers] = useState<LeagueMember[]>([]);
   const [rankings, setRankings] = useState<ManagerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,10 +153,12 @@ export default function Home() {
         try {
           const context = await fetchLeagueContext();
           initialLeague = context.league;
+          setMembers(context.members);
           seasons = context.availableSeasons;
         } catch {
           const info = await fetchLeague();
           initialLeague = info;
+          setMembers([]);
           const currentYear = parseInt(info.season, 10);
           seasons = Array.from({ length: 6 }, (_, i) => String(currentYear - i));
         }
@@ -196,6 +200,7 @@ export default function Home() {
           const context = await fetchLeagueContext(selectedSeason);
           targetLeague = context.league;
           setLeague(context.league);
+          setMembers(context.members);
           setAvailableSeasons(context.availableSeasons);
         }
 
@@ -365,6 +370,7 @@ export default function Home() {
               week={recapWeek}
               leagueId={league.leagueId}
               season={league.season}
+              members={members}
               onPublished={() => fetchAndApplyData(league.leagueId, selectedWeek === 0 ? undefined : selectedWeek)}
             />
           )}

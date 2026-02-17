@@ -41,10 +41,10 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
 
 3. **Set up the database:**
 
-   Create a [Neon](https://neon.tech) Postgres database (free tier works), then add the connection string to `.env.local` as `DATABASE_URL`. Run the migration to create the `recaps` table:
+   Create a [Neon](https://neon.tech) Postgres database (free tier works), then add the connection string to `.env.local` as `DATABASE_URL`. Run the migration to create the `recaps` and `manager_notes` tables:
 
    ```bash
-   npx tsx lib/db/setup.ts
+   npx -y dotenv-cli -e .env.local -- npx tsx lib/db/setup.ts
    ```
 
 4. **Run locally:**
@@ -61,7 +61,7 @@ A terminal-aesthetic fantasy football leaderboard powered by the Sleeper API. Bu
 2. Import the repo in [Vercel](https://vercel.com)
 3. Add environment variables: `SLEEPER_LEAGUE_ID`, `OPENAI_API_KEY`
 4. Add a Neon Postgres database via Vercel Storage (or link an existing one) — this auto-sets `DATABASE_URL`
-5. Run `npx tsx lib/db/setup.ts` after first deploy (or use `vercel env pull .env.local` locally and run it from there)
+5. Run `npx -y dotenv-cli -e .env.local -- npx tsx lib/db/setup.ts` after first deploy (or use `vercel env pull .env.local` locally and run it from there)
 6. Deploy
 
 ## Power Ranking Algorithm

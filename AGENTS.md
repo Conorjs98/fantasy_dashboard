@@ -12,8 +12,9 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
   - `types.ts` — All Sleeper API and app types
   - `api-utils.ts` — Shared API route helpers (param parsing, error responses)
   - `db/index.ts` — Neon Postgres connection helper (`sql()` function) and `initDb()` for schema migration
-  - `recap-builder.ts` — Matchup building logic extracted from weekly-recap route (`buildRecapMatchups`, `buildHighlights`)
+  - `recap-builder.ts` — Matchup/context building logic (`buildRecapMatchups`, `buildHighlights`, `buildManagerContextPacks`)
   - `recap-store.ts` — Recap persistence layer (CRUD for `recaps` table via Neon Postgres)
+  - `manager-notes-store.ts` — Season-scoped manager notes persistence (`readAllManagerNotes`, `upsertManagerNote`)
   - `recap-llm.ts` — OpenAI (gpt-4o) recap generation (`generateRecap()`)
 - **`app/api/`** — Route handlers that call `lib/sleeper.ts` and return JSON
   - `context/route.ts` — Unified context endpoint for league metadata + members + available seasons
@@ -21,6 +22,7 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
   - `weekly-recap/generate/route.ts` — POST: generate AI recap draft via LLM
   - `weekly-recap/publish/route.ts` — POST: publish a DRAFT recap
   - `weekly-recap/admin/route.ts` — GET: admin preview of draft/published recap
+  - `manager-notes/route.ts` — GET/PUT: season-scoped per-manager personality notes (v1 unauthenticated)
 - **`app/components/`** — Client components (`"use client"`)
   - `AdminRecapControls.tsx` — Commissioner controls: generate, preview, publish AI recaps
 - **`app/page.tsx`** — Main dashboard, manages state and fetches from `/api/*`
@@ -59,7 +61,7 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
 npm run dev          # local dev server
 npm run build        # production build (do NOT run while dev server is running — overwrites .next)
 npx tsc --noEmit     # type-check without a full build
-npx tsx lib/db/setup.ts  # run database migration (creates recaps table)
+npx tsx lib/db/setup.ts  # run database migration (creates recaps + manager_notes tables)
 ```
 
 ## Environment Variables
@@ -83,6 +85,7 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 - Weekly recap summary card always renders; unpublished states show a single "Recap coming soon" waiting indicator with an in-card retro 8-bit QB-to-WR loading animation
 - Recap waiting animation uses site accent palette, stepped stop-motion timing, a brief catch hold, subtle camera jitter, and a short ball-motion trail
 - Recap waiting animation is left-aligned in a frameless strip (no extra inner rectangle around the animation scene)
+- Admin recap controls include collapsible per-manager notes with save-on-blur persistence and stale-response race protection
 
 ## UI Tabs (Current Order)
 
@@ -101,9 +104,12 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - Clicking a highlights tile now applies a brief accent flash on the destination matchup card to make the scroll target obvious.
   - Winner/loser treatment (`W`/`L`, winner highlight, loser muted, tie-safe handling).
   - AI-generated per-matchup summaries and week summary via OpenAI gpt-4o.
+  - AI recap prompt defaults to a savage roast persona and consumes per-manager context packs (notes, lineup stats, completed trades).
+  - AI recap context now includes named top/bottom starters per team so generated summaries can reference real players when available.
   - Unpublished recap states now show one Week Summary waiting card instead of repeating per-matchup unpublished placeholders.
   - Waiting state uses an animated "Recap coming soon" card while recap generation is pending (retro 8-bit QB throw to WR, accent-cyan palette, catch pause, subtle jitter/trail effects, reduced-motion fallback).
   - Commissioner-controlled draft/publish lifecycle: generate draft → preview → publish.
+  - Season-scoped manager personality notes (`league_id + season + user_id`) stored in Postgres and surfaced in admin recap controls.
   - Matchup chips: `Close`, `Blowout`, `Shootout`, `Snoozefest` from shared threshold constants.
   - Week navigation improvements: prev/next week buttons in Recap tab plus deep-linkable week URLs via `?week=N`.
   - Mobile-safe stacked layout without horizontal scrolling.
@@ -112,11 +118,13 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - `lib/recap-builder.ts`
   - `lib/recap-llm.ts`
   - `lib/recap-store.ts`
+  - `lib/manager-notes-store.ts`
   - `lib/db/index.ts`
   - `app/api/weekly-recap/route.ts`
   - `app/api/weekly-recap/generate/route.ts`
   - `app/api/weekly-recap/publish/route.ts`
   - `app/api/weekly-recap/admin/route.ts`
+  - `app/api/manager-notes/route.ts`
   - `app/components/RetroFootballLoader.tsx`
   - `app/components/WeeklyRecapFeed.tsx`
   - `app/components/AdminRecapControls.tsx`
@@ -137,13 +145,16 @@ NOT_GENERATED → [POST /generate] → DRAFT → [POST /publish] → PUBLISHED
 - Public GET endpoint only shows AI summaries when state is PUBLISHED
 - Admin GET endpoint shows draft content for preview regardless of state
 - No auth in v1 — admin controls always visible
+- No auth in v1 for `/api/manager-notes` (TODO: commissioner-only auth)
 
 ## API Contracts
 
 | Method | Route | Body / Params | Response |
 |--------|-------|---------------|----------|
 | GET | `/api/weekly-recap` | `?leagueId&week&season` | `WeeklyRecapResponse` (+ `recapState`, `weekSummary`) |
-| GET | `/api/weekly-recap/admin` | `?leagueId&week` | `AdminRecapResponse` |
+| GET | `/api/weekly-recap/admin` | `?leagueId&week&season` | `AdminRecapResponse` (includes `managerNotes`) |
+| GET | `/api/manager-notes` | `?leagueId&season` | `{ notes: ManagerNote[] }` |
+| PUT | `/api/manager-notes` | `{ leagueId?, season, userId, notes }` | `{ note: ManagerNote }` |
 | POST | `/api/weekly-recap/generate` | `{ week, leagueId?, season?, personalityNotes? }` | `{ ok, state: "DRAFT" }` |
 | POST | `/api/weekly-recap/publish` | `{ week, leagueId?, season? }` | `{ ok, state: "PUBLISHED" }` |
 
