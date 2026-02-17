@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import type { RecapState, WeeklyRecapHighlight, WeeklyRecapMatchup } from "@/lib/types";
+import RetroFootballLoader from "./RetroFootballLoader";
 
 interface WeeklyRecapFeedProps {
   week: number;
@@ -20,6 +21,7 @@ function RecapComingSoonIndicator() {
       <p className="text-[10px] uppercase tracking-widest text-text-secondary mt-1">
         Week summary publishes after AI processing completes
       </p>
+      <RetroFootballLoader className="mt-3 w-full h-14" />
     </div>
   );
 }

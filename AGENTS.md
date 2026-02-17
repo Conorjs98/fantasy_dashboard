@@ -80,7 +80,9 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 - Mobile navigation: dashboard tabs wrap to multiple lines on smaller screens
 - Mobile leaderboard: preserved desktop table columns with horizontal scroll on narrow viewports
 - Leaderboard PWR tooltip: opens below the header icon to avoid clipping and explains what the score indicates for users
-- Weekly recap summary card always renders; unpublished states show a single static "Recap coming soon" waiting indicator
+- Weekly recap summary card always renders; unpublished states show a single "Recap coming soon" waiting indicator with an in-card retro 8-bit QB-to-WR loading animation
+- Recap waiting animation uses site accent palette, stepped stop-motion timing, a brief catch hold, subtle camera jitter, and a short ball-motion trail
+- Recap waiting animation is left-aligned in a frameless strip (no extra inner rectangle around the animation scene)
 
 ## UI Tabs (Current Order)
 
@@ -100,7 +102,7 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - Winner/loser treatment (`W`/`L`, winner highlight, loser muted, tie-safe handling).
   - AI-generated per-matchup summaries and week summary via OpenAI gpt-4o.
   - Unpublished recap states now show one Week Summary waiting card instead of repeating per-matchup unpublished placeholders.
-  - Waiting state uses a static "Recap coming soon" card while recap generation is pending.
+  - Waiting state uses an animated "Recap coming soon" card while recap generation is pending (retro 8-bit QB throw to WR, accent-cyan palette, catch pause, subtle jitter/trail effects, reduced-motion fallback).
   - Commissioner-controlled draft/publish lifecycle: generate draft → preview → publish.
   - Matchup chips: `Close`, `Blowout`, `Shootout`, `Snoozefest` from shared threshold constants.
   - Week navigation improvements: prev/next week buttons in Recap tab plus deep-linkable week URLs via `?week=N`.
@@ -115,6 +117,7 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - `app/api/weekly-recap/generate/route.ts`
   - `app/api/weekly-recap/publish/route.ts`
   - `app/api/weekly-recap/admin/route.ts`
+  - `app/components/RetroFootballLoader.tsx`
   - `app/components/WeeklyRecapFeed.tsx`
   - `app/components/AdminRecapControls.tsx`
   - `app/page.tsx`
