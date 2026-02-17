@@ -83,6 +83,8 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 - Mobile leaderboard: preserved desktop table columns with horizontal scroll on narrow viewports
 - Leaderboard PWR tooltip: opens below the header icon to avoid clipping and explains what the score indicates for users
 - Weekly recap summary card always renders; unpublished states show a single "Recap coming soon" waiting indicator with an in-card retro 8-bit QB-to-WR loading animation
+- Published weekly summary and matchup recap text now marks league team-name mentions with inline `TEAM` badges so fantasy teams are visually distinct from NFL player names
+- Admin recap preview (draft + published) uses the same inline `TEAM` team-name markers for consistent AI text readability
 - Recap waiting animation uses site accent palette, stepped stop-motion timing, a brief catch hold, subtle camera jitter, and a short ball-motion trail
 - Recap waiting animation is left-aligned in a frameless strip (no extra inner rectangle around the animation scene)
 - Admin recap controls include collapsible per-manager notes with save-on-blur persistence and stale-response race protection
@@ -104,6 +106,8 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
   - Clicking a highlights tile now applies a brief accent flash on the destination matchup card to make the scroll target obvious.
   - Winner/loser treatment (`W`/`L`, winner highlight, loser muted, tie-safe handling).
   - AI-generated per-matchup summaries and week summary via OpenAI gpt-4o.
+  - Published recap prose now highlights league team names with inline `TEAM` badges for clearer team-vs-player name scanning.
+  - Admin recap preview mirrors the same team-name highlighting pattern in both week summary and matchup summaries.
   - AI recap prompt defaults to a savage roast persona and consumes per-manager context packs (notes, lineup stats, completed trades).
   - AI recap context now includes named top/bottom starters per team so generated summaries can reference real players when available.
   - Unpublished recap states now show one Week Summary waiting card instead of repeating per-matchup unpublished placeholders.

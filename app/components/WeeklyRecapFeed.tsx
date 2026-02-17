@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { RecapState, WeeklyRecapHighlight, WeeklyRecapMatchup } from "@/lib/types";
 import RetroFootballLoader from "./RetroFootballLoader";
+import { renderRecapTextWithTeamBadges } from "./recapText";
 
 interface WeeklyRecapFeedProps {
   week: number;
@@ -129,6 +130,7 @@ export default function WeeklyRecapFeed({ week, matchups, highlights, recapState
   const [flashMatchupId, setFlashMatchupId] = useState<number | null>(null);
   const clearFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPublishedWeekSummary = recapState === "PUBLISHED" && weekSummary.trim().length > 0;
+  const teamNames = matchups.flatMap((matchup) => [matchup.a.teamName, matchup.b.teamName]);
 
   const handleHighlightClick = (matchupId: number): void => {
     scrollToMatchup(matchupId);
@@ -168,7 +170,9 @@ export default function WeeklyRecapFeed({ week, matchups, highlights, recapState
       <div className="bg-card border border-accent/30 rounded p-4">
         <p className="text-[9px] uppercase tracking-widest text-accent mb-2">Week Summary</p>
         {hasPublishedWeekSummary ? (
-          <p className="text-sm text-text-primary leading-relaxed">{weekSummary}</p>
+          <p className="text-sm text-text-primary leading-relaxed">
+            {renderRecapTextWithTeamBadges(weekSummary, teamNames)}
+          </p>
         ) : (
           <RecapComingSoonIndicator />
         )}
@@ -237,7 +241,9 @@ export default function WeeklyRecapFeed({ week, matchups, highlights, recapState
             {recapState === "PUBLISHED" && matchup.summary.trim().length > 0 && (
               <div className="mt-3 border border-[#222] bg-[#0d0d0d] rounded p-3">
                 <p className="text-[9px] uppercase tracking-widest text-text-secondary mb-1">Summary</p>
-                <p className="text-sm text-text-primary">{matchup.summary}</p>
+                <p className="text-sm text-text-primary leading-relaxed">
+                  {renderRecapTextWithTeamBadges(matchup.summary, teamNames)}
+                </p>
               </div>
             )}
           </article>

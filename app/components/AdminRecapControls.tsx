@@ -7,6 +7,7 @@ import type {
   ManagerNote,
   RecapState,
 } from "@/lib/types";
+import { renderRecapTextWithTeamBadges } from "./recapText";
 
 interface AdminRecapControlsProps {
   week: number;
@@ -162,6 +163,7 @@ export default function AdminRecapControls({
   const state: RecapState = admin?.state ?? "NOT_GENERATED";
   const stateLabel = STATE_LABELS[state];
   const hasDraftOrPublished = state === "DRAFT" || state === "PUBLISHED";
+  const teamNames = members.map((member) => member.teamName);
 
   return (
     <div className="bg-card border border-[#222] rounded p-4 space-y-4">
@@ -322,7 +324,9 @@ export default function AdminRecapControls({
               <p className="text-[9px] uppercase tracking-widest text-accent mb-1">
                 Week Summary
               </p>
-              <p className="text-sm text-text-primary">{admin.weekSummary}</p>
+              <p className="text-sm text-text-primary leading-relaxed">
+                {renderRecapTextWithTeamBadges(admin.weekSummary, teamNames)}
+              </p>
             </div>
           )}
 
@@ -339,7 +343,9 @@ export default function AdminRecapControls({
                   <p className="text-[9px] uppercase tracking-widest text-text-secondary mb-1">
                     Matchup {ms.matchupId}
                   </p>
-                  <p className="text-sm text-text-primary">{ms.summary}</p>
+                  <p className="text-sm text-text-primary leading-relaxed">
+                    {renderRecapTextWithTeamBadges(ms.summary, teamNames)}
+                  </p>
                 </div>
               ))}
             </div>
