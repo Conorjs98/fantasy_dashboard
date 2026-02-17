@@ -42,7 +42,6 @@ Next.js 14 App Router / TypeScript / Tailwind CSS. Dark terminal aesthetic.
 ## Pending Features (search `// TODO:`)
 
 - `/api/roast` — LLM matchup roasts (stub exists)
-- `/api/luck` — Expected vs actual wins (stub exists)
 - Multi-league — `SLEEPER_LEAGUE_IDS` env var (scaffolding in `config.ts`)
 
 ## Code comments
@@ -82,6 +81,8 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 - Mobile navigation: dashboard tabs wrap to multiple lines on smaller screens
 - Mobile leaderboard: preserved desktop table columns with horizontal scroll on narrow viewports
 - Leaderboard PWR tooltip: opens below the header icon to avoid clipping and explains what the score indicates for users
+- Leaderboard now includes Expected Record context per row, `Δ vs Expected`, and `All-Play %`; Expected Record help text is attached to the `EXP REC` column header tooltip
+- Expected Record metrics follow the active global week/season selection (no separate leaderboard scope toggle)
 - Weekly recap summary card always renders; unpublished states show a single "Recap coming soon" waiting indicator with an in-card retro 8-bit QB-to-WR loading animation
 - Published weekly summary and matchup recap text now marks league team-name mentions with inline `TEAM` badges so fantasy teams are visually distinct from NFL player names
 - Admin recap preview (draft + published) uses the same inline `TEAM` team-name markers for consistent AI text readability
@@ -94,7 +95,6 @@ DATABASE_URL         # Neon Postgres connection string (or POSTGRES_URL)
 1. Weekly Recap
 2. Leaderboard
 3. Roast
-4. Luck
 
 ## Weekly Recap (Milestone M2 + AI Recap v1)
 
@@ -155,6 +155,7 @@ NOT_GENERATED → [POST /generate] → DRAFT → [POST /publish] → PUBLISHED
 
 | Method | Route | Body / Params | Response |
 |--------|-------|---------------|----------|
+| GET | `/api/rankings` | `?leagueId&week&season` | `RankingsResponse` (`rankings` + leaderboard Expected Record fields) |
 | GET | `/api/weekly-recap` | `?leagueId&week&season` | `WeeklyRecapResponse` (+ `recapState`, `weekSummary`) |
 | GET | `/api/weekly-recap/admin` | `?leagueId&week&season` | `AdminRecapResponse` (includes `managerNotes`) |
 | GET | `/api/manager-notes` | `?leagueId&season` | `{ notes: ManagerNote[] }` |
@@ -165,6 +166,6 @@ NOT_GENERATED → [POST /generate] → DRAFT → [POST /publish] → PUBLISHED
 ## Feature Status
 
 - AI Recap: implemented (v1 — no auth, commissioner controls always visible)
+- Leaderboard Expected Record: implemented (integrated into leaderboard; no dedicated tab)
 - Roast API: stub (`/api/roast`)
-- Luck API: stub (`/api/luck`)
 - Multi-league env support: scaffolded in `lib/config.ts` TODO

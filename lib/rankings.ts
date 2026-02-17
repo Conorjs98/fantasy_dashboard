@@ -5,6 +5,8 @@ import type {
   SleeperMatchup,
   SleeperBracketMatch,
   ManagerRanking,
+  ExpectedScope,
+  ExpectedRecordLine,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +60,20 @@ interface AccumulatedStats {
   ties: number;
   pointsFor: number;
   pointsAgainst: number;
+}
+
+interface ExpectedRecordComputation {
+  byRoster: Map<
+    number,
+    {
+      expectedRecord: ExpectedRecordLine;
+      actualWins: number;
+      deltaVsExpected: number;
+      allPlayWinPct: number;
+    }
+  >;
+  available: boolean;
+  reason: string | null;
 }
 
 /**
@@ -137,6 +153,158 @@ export function accumulateStats(
       (r.settings.fpts_against ?? 0) +
       (r.settings.fpts_against_decimal ?? 0) / 100,
   }));
+}
+
+export function expectedScopeLabel(scope: ExpectedScope): string {
+  return scope === "selected_week" ? "Selected Week" : "Season-to-Date";
+}
+
+function initExpectedMap(rosters: SleeperRoster[]): ExpectedRecordComputation["byRoster"] {
+  const byRoster = new Map<
+    number,
+    {
+      expectedRecord: ExpectedRecordLine;
+      actualWins: number;
+      deltaVsExpected: number;
+      allPlayWinPct: number;
+    }
+  >();
+  for (const roster of rosters) {
+    byRoster.set(roster.roster_id, {
+      expectedRecord: { wins: 0, losses: 0, ties: 0 },
+      actualWins: 0,
+      deltaVsExpected: 0,
+      allPlayWinPct: 0,
+    });
+  }
+  return byRoster;
+}
+
+export function computeExpectedRecords(
+  rosters: SleeperRoster[],
+  matchupsByWeek: SleeperMatchup[][],
+  throughWeek: number,
+  scope: ExpectedScope
+): ExpectedRecordComputation {
+  const byRoster = initExpectedMap(rosters);
+
+  if (throughWeek < 1) {
+    return {
+      byRoster,
+      available: false,
+      reason: "Expected Record requires at least one completed week.",
+    };
+  }
+
+  const weekStart = scope === "selected_week" ? throughWeek - 1 : 0;
+  const weekEnd = Math.min(throughWeek, matchupsByWeek.length) - 1;
+
+  if (weekEnd < weekStart) {
+    return {
+      byRoster,
+      available: false,
+      reason: "Expected Record matchup data is unavailable for this scope.",
+    };
+  }
+
+  let comparisons = 0;
+
+  for (let weekIndex = weekStart; weekIndex <= weekEnd; weekIndex++) {
+    const weekMatchups = matchupsByWeek[weekIndex] ?? [];
+    const validEntries = weekMatchups.filter(
+      (m) => Number.isFinite(m.points) && m.roster_id != null
+    );
+    const weeklyAllPlay = new Map<number, ExpectedRecordLine>();
+    for (const entry of validEntries) {
+      weeklyAllPlay.set(entry.roster_id, { wins: 0, losses: 0, ties: 0 });
+    }
+
+    for (let i = 0; i < validEntries.length; i++) {
+      const a = validEntries[i];
+      const aWeek = weeklyAllPlay.get(a.roster_id);
+      if (!aWeek) continue;
+
+      for (let j = i + 1; j < validEntries.length; j++) {
+        const b = validEntries[j];
+        const bWeek = weeklyAllPlay.get(b.roster_id);
+        if (!bWeek) continue;
+        comparisons++;
+
+        if (a.points > b.points) {
+          aWeek.wins += 1;
+          bWeek.losses += 1;
+        } else if (b.points > a.points) {
+          bWeek.wins += 1;
+          aWeek.losses += 1;
+        } else {
+          aWeek.wins += 0.5;
+          bWeek.wins += 0.5;
+          aWeek.losses += 0.5;
+          bWeek.losses += 0.5;
+          aWeek.ties += 1;
+          bWeek.ties += 1;
+        }
+      }
+    }
+
+    const weeklyOpponents = Math.max(0, validEntries.length - 1);
+    if (weeklyOpponents > 0) {
+      for (const [rosterId, weeklyRecord] of weeklyAllPlay.entries()) {
+        const seasonData = byRoster.get(rosterId);
+        if (!seasonData) continue;
+        seasonData.expectedRecord.wins += weeklyRecord.wins / weeklyOpponents;
+        seasonData.expectedRecord.losses += weeklyRecord.losses / weeklyOpponents;
+        seasonData.expectedRecord.ties += weeklyRecord.ties / weeklyOpponents;
+      }
+    }
+
+    // Actual wins follow real head-to-head pairings, not all-play comparisons.
+    const byMatchupId = new Map<number, SleeperMatchup[]>();
+    for (const matchup of weekMatchups) {
+      const group = byMatchupId.get(matchup.matchup_id) ?? [];
+      group.push(matchup);
+      byMatchupId.set(matchup.matchup_id, group);
+    }
+
+    for (const pair of byMatchupId.values()) {
+      if (pair.length !== 2) continue;
+      const [a, b] = pair;
+      if (!Number.isFinite(a.points) || !Number.isFinite(b.points)) continue;
+
+      if (a.points > b.points) {
+        const aData = byRoster.get(a.roster_id);
+        if (aData) aData.actualWins += 1;
+      } else if (b.points > a.points) {
+        const bData = byRoster.get(b.roster_id);
+        if (bData) bData.actualWins += 1;
+      }
+    }
+  }
+
+  if (comparisons === 0) {
+    return {
+      byRoster,
+      available: false,
+      reason: "Expected Record matchup scores are not available yet.",
+    };
+  }
+
+  for (const rosterData of byRoster.values()) {
+    const expectedGames = rosterData.expectedRecord.wins + rosterData.expectedRecord.losses;
+    rosterData.deltaVsExpected =
+      Math.round((rosterData.actualWins - rosterData.expectedRecord.wins) * 10) / 10;
+    rosterData.expectedRecord.wins = Math.round(rosterData.expectedRecord.wins * 10) / 10;
+    rosterData.expectedRecord.losses = Math.round(rosterData.expectedRecord.losses * 10) / 10;
+    rosterData.expectedRecord.ties = Math.round(rosterData.expectedRecord.ties * 10) / 10;
+    rosterData.allPlayWinPct =
+      expectedGames > 0 ? Math.round((rosterData.expectedRecord.wins / expectedGames) * 1000) / 1000 : 0;
+  }
+
+  return {
+    byRoster,
+    available: true,
+    reason: null,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import type {
   LeagueMember,
   ManagerRanking,
   RecapState,
+  RankingsResponse,
   WeeklyRecapHighlight,
   WeeklyRecapMatchup,
   WeeklyRecapResponse,
@@ -19,18 +20,10 @@ import DistributionChart from "./components/DistributionChart";
 import WeeklyRecapFeed from "./components/WeeklyRecapFeed";
 import AdminRecapControls from "./components/AdminRecapControls";
 
-interface RankingsResponse {
-  rankings: ManagerRanking[];
-  week: number;
-  season: string;
-  leagueName: string;
-}
-
 const DASHBOARD_TABS = [
   { id: "weekly-recap", label: "Weekly Recap" },
   { id: "leaderboard", label: "Leaderboard" },
   { id: "roast", label: "Roast" },
-  { id: "luck", label: "Luck" },
 ] as const;
 
 type DashboardTab = (typeof DASHBOARD_TABS)[number]["id"];
@@ -90,7 +83,7 @@ export default function Home() {
 
   // Fetch rankings
   const fetchRankings = useCallback(
-    async (leagueId: string, week?: number) => {
+    async (leagueId: string, week: number | undefined) => {
       const params = new URLSearchParams({ leagueId });
       if (week !== undefined) params.set("week", String(week));
       const res = await fetch(`/api/rankings?${params}`);
@@ -116,7 +109,7 @@ export default function Home() {
   );
 
   const fetchAndApplyData = useCallback(
-    async (leagueId: string, week?: number) => {
+    async (leagueId: string, week: number | undefined) => {
       const [rankingsData, recapData] = await Promise.all([
         fetchRankings(leagueId, week),
         fetchWeeklyRecap(leagueId, week),
@@ -371,14 +364,21 @@ export default function Home() {
               leagueId={league.leagueId}
               season={league.season}
               members={members}
-              onPublished={() => fetchAndApplyData(league.leagueId, selectedWeek === 0 ? undefined : selectedWeek)}
+              onPublished={() =>
+                fetchAndApplyData(
+                  league.leagueId,
+                  selectedWeek === 0 ? undefined : selectedWeek
+                )
+              }
             />
           )}
         </div>
       ) : activeTab === "leaderboard" ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
           {/* Left: Leaderboard */}
-          <Leaderboard rankings={rankings} />
+          <Leaderboard
+            rankings={rankings}
+          />
 
           {/* Right: Sidebar widgets */}
           <div className="space-y-4">
@@ -386,17 +386,16 @@ export default function Home() {
             <DistributionChart rankings={rankings} />
 
             {/* TODO: [roast] Add roast widget here */}
-            {/* TODO: [luck] Add luck analysis widget here */}
           </div>
         </div>
       ) : (
         <div className="bg-card border border-[#222] rounded p-6">
           <h2 className="text-xs uppercase tracking-widest text-text-primary mb-2">
-            {activeTab === "roast" ? "Roast" : activeTab === "luck" ? "Luck" : "Tab"}
+            {activeTab === "roast" ? "Roast" : "Tab"}
           </h2>
           <p className="text-sm text-text-secondary">
             This tab is scaffolded and ready for the
-            {activeTab === "roast" ? " /api/roast" : " /api/luck"} integration.
+            /api/roast integration.
           </p>
         </div>
       )}

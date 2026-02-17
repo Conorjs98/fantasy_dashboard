@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { getMatchups, getWinnersBracket, getLosersBracket } from "@/lib/sleeper";
 import { getLeagueContext } from "@/lib/league-context";
-import { accumulateStats, computeRankings, deriveFinalPlacements } from "@/lib/rankings";
+import {
+  accumulateStats,
+  computeExpectedRecords,
+  computeRankings,
+  deriveFinalPlacements,
+} from "@/lib/rankings";
 import { parseLeagueParams, apiErrorResponse } from "@/lib/api-utils";
+import type { ManagerRanking } from "@/lib/types";
 
 export async function GET(request: Request) {
   try {
@@ -14,9 +20,7 @@ export async function GET(request: Request) {
     const context = await getLeagueContext({ leagueId, season });
     const { league, rosters, users, rawLeague } = context;
 
-    const maxWeek =
-      throughWeek ?? league.currentWeek;
-
+    const maxWeek = throughWeek ?? league.currentWeek;
     const weekNumbers = Array.from({ length: maxWeek }, (_, i) => i + 1);
     const matchupsByWeek = await Promise.all(
       weekNumbers.map((w) => getMatchups(league.leagueId, w))
@@ -35,9 +39,30 @@ export async function GET(request: Request) {
     }
 
     const rankings = computeRankings(stats, rosters, users, { finalPlacements });
+    let rankingsWithExpected: ManagerRanking[] = rankings;
+
+    try {
+      const expected = computeExpectedRecords(
+        rosters,
+        matchupsByWeek,
+        maxWeek,
+        "season_to_date"
+      );
+
+      rankingsWithExpected = rankings.map((manager) => {
+        const expectedData = expected.byRoster.get(manager.rosterId);
+        if (!expectedData || !expected.available) return manager;
+        return {
+          ...manager,
+          expectedRecord: expectedData.expectedRecord,
+          deltaVsExpected: expectedData.deltaVsExpected,
+          allPlayWinPct: expectedData.allPlayWinPct,
+        };
+      });
+    } catch {}
 
     return NextResponse.json({
-      rankings,
+      rankings: rankingsWithExpected,
       week: maxWeek,
       season: league.season,
       leagueName: league.name,

@@ -10,6 +10,12 @@ const rankColors: Record<number, string> = {
   3: "text-bronze",
 };
 
+function formatDelta(delta?: number): string {
+  if (typeof delta !== "number") return "—";
+  if (delta > 0) return `+${delta.toFixed(1)}`;
+  return delta.toFixed(1);
+}
+
 export default function LeaderboardRow({
   manager,
   isFirst = false,
@@ -19,10 +25,27 @@ export default function LeaderboardRow({
 }) {
   const rankColor = rankColors[manager.rank] ?? "text-muted";
   const rankStr = String(manager.rank).padStart(2, "0");
+  const deltaClass =
+    typeof manager.deltaVsExpected !== "number"
+      ? "text-text-secondary"
+      : manager.deltaVsExpected > 0
+        ? "text-accent"
+        : manager.deltaVsExpected < 0
+          ? "text-red-400"
+          : "text-text-secondary";
+  const expectedRecord = manager.expectedRecord
+    ? `${manager.expectedRecord.wins.toFixed(1)}-${manager.expectedRecord.losses.toFixed(1)}${
+      manager.expectedRecord.ties > 0 ? `-${manager.expectedRecord.ties.toFixed(1)}` : ""
+    }`
+    : "—";
+  const allPlayWinPct =
+    typeof manager.allPlayWinPct === "number"
+      ? `${(manager.allPlayWinPct * 100).toFixed(1)}%`
+      : "—";
 
   return (
     <div
-      className={`grid grid-cols-[48px_1fr_100px_80px_80px_80px] items-center gap-2 px-4 py-3 transition-colors ${
+      className={`grid grid-cols-[48px_1fr_100px_80px_80px_80px_92px_102px_118px] items-center gap-2 px-4 py-3 transition-colors ${
         isFirst ? "bg-[#181818]" : "bg-card hover:bg-[#181818]"
       }`}
     >
@@ -83,6 +106,21 @@ export default function LeaderboardRow({
       {/* PA */}
       <span className="text-xs text-text-secondary text-right tabular-nums">
         {manager.pointsAgainst.toFixed(1)}
+      </span>
+
+      {/* All-play win percentage */}
+      <span className="text-xs text-text-secondary text-right tabular-nums">
+        {allPlayWinPct}
+      </span>
+
+      {/* Expected Record */}
+      <span className="text-xs text-text-secondary text-right tabular-nums">
+        {expectedRecord}
+      </span>
+
+      {/* Delta vs Expected */}
+      <span className={`text-xs text-right tabular-nums font-semibold ${deltaClass}`}>
+        {formatDelta(manager.deltaVsExpected)}
       </span>
     </div>
   );

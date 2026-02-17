@@ -121,6 +121,24 @@ export interface ManagerRanking {
   ties: number;
   pointsFor: number;
   pointsAgainst: number;
+  expectedRecord?: ExpectedRecordLine;
+  deltaVsExpected?: number;
+  allPlayWinPct?: number;
+}
+
+export type ExpectedScope = "season_to_date" | "selected_week";
+
+export interface ExpectedRecordLine {
+  wins: number;
+  losses: number;
+  ties: number;
+}
+
+export interface RankingsResponse {
+  rankings: ManagerRanking[];
+  week: number;
+  season: string;
+  leagueName: string;
 }
 
 export interface LeagueInfo {
@@ -268,14 +286,6 @@ export interface AdminRecapResponse {
   generatedAt: string | null;
   publishedAt: string | null;
 }
-
-// TODO: [luck] LuckData type for expected-vs-actual wins analysis
-// export interface LuckData {
-//   rosterId: number;
-//   expectedWins: number;
-//   actualWins: number;
-//   luckIndex: number;
-// }
 
 // TODO: [roast] RoastRequest / RoastResponse types
 // export interface RoastRequest {
