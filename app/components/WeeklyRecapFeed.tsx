@@ -19,7 +19,7 @@ function RecapComingSoonIndicator() {
     <div className="mt-2 rounded border border-[#2a3b40] bg-[#0b1215] p-3">
       <p className="text-sm text-text-primary leading-relaxed">Recap coming soon.</p>
       <p className="text-[10px] uppercase tracking-widest text-text-secondary mt-1">
-        Week summary publishes after AI processing completes
+        Week Summary Publishes After the week is complete
       </p>
       <RetroFootballLoader className="mt-3 w-full h-14" />
     </div>
